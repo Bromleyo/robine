@@ -30,6 +30,15 @@ export async function GET(req: NextRequest) {
     return NextResponse.redirect(`${process.env.NEXTAUTH_URL}/config/mailboxes?error=invalid_state`)
   }
 
+  try {
+    return await handleCallback(req, code, restaurantId)
+  } catch (err) {
+    console.error('[ms-mailbox-callback] unexpected error', err)
+    return NextResponse.redirect(`${process.env.NEXTAUTH_URL}/config/mailboxes?error=ms_internal_error`)
+  }
+}
+
+async function handleCallback(_req: NextRequest, code: string, restaurantId: string) {
   const redirectUri = `${process.env.NEXTAUTH_URL}/api/auth/microsoft-mailbox/callback`
 
   const tokenRes = await fetch(`https://login.microsoftonline.com/${process.env.AZURE_AD_TENANT_ID}/oauth2/v2.0/token`, {

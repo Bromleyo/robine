@@ -34,6 +34,7 @@ const ERROR_MESSAGES: Record<string, string> = {
   ms_no_refresh_token: 'Microsoft n\'a pas retourné de token de rafraîchissement.',
   ms_no_profile: 'Impossible de récupérer le profil Microsoft.',
   ms_no_email: 'Impossible de récupérer l\'adresse email.',
+  ms_internal_error: 'Erreur interne lors de la connexion Microsoft. Vérifiez les logs Vercel.',
   gmail_no_email: 'Impossible de récupérer l\'adresse email Google.',
 }
 
