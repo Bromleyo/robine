@@ -35,6 +35,7 @@ export async function GET(_req: NextRequest) {
       id: true,
       email: true,
       displayName: true,
+      provider: true,
       actif: true,
       subscriptionId: true,
       subscriptionExpiry: true,
