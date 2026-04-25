@@ -46,6 +46,8 @@ export async function GET(req: NextRequest) {
   })
 
   if (!tokenRes.ok) {
+    const errBody = await tokenRes.text().catch(() => '(unreadable)')
+    console.error('[ms-mailbox-callback] token exchange failed', tokenRes.status, errBody)
     return NextResponse.redirect(`${process.env.NEXTAUTH_URL}/config/mailboxes?error=ms_token_failed`)
   }
 
