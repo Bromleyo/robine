@@ -77,6 +77,7 @@ model Restaurant {
   invitations    Invitation[]
   contacts       Contact[]
   espaces        Espace[]
+  imprimantes    Imprimante[]
   demandes       Demande[]
   menus          Menu[]
   templates      TemplateMessage[]
@@ -412,6 +413,23 @@ model RegleIA {
   restaurant Restaurant @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
 
   @@map("regles_ia")
+}
+
+model Imprimante {
+  id           String   @id @default(cuid())
+  restaurantId String
+  nom          String
+  adresseIp    String?
+  modele       String?
+  notes        String?
+  actif        Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  restaurant Restaurant @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+
+  @@index([restaurantId])
+  @@map("imprimantes")
 }
 
 model WebhookEvent {

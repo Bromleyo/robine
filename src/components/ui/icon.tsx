@@ -3,7 +3,7 @@ type IconName =
   | 'cal' | 'users' | 'pin' | 'mail' | 'phone' | 'form' | 'chev' | 'dots'
   | 'close' | 'filter' | 'check' | 'euro' | 'bolt' | 'chat' | 'send'
   | 'paperclip' | 'clock' | 'bell' | 'arrow_right' | 'star' | 'sparkle'
-  | 'kanban' | 'list' | 'eye'
+  | 'kanban' | 'list' | 'eye' | 'print'
 
 interface IconProps {
   name: IconName
@@ -45,6 +45,7 @@ const PATHS: Record<IconName, React.ReactNode> = {
   kanban: <><rect x="3" y="4" width="5" height="16" rx="1"/><rect x="10" y="4" width="5" height="10" rx="1"/><rect x="17" y="4" width="4" height="14" rx="1"/></>,
   list: <><path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/></>,
   eye: <><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></>,
+  print: <><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></>,
 }
 
 export default function Icon({ name, size = 16, stroke = 1.6, className }: IconProps) {
