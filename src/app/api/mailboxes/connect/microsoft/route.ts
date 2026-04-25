@@ -22,7 +22,6 @@ export async function GET(_req: NextRequest) {
     redirect_uri: redirectUri,
     scope: 'Mail.Read Mail.Send offline_access',
     response_mode: 'query',
-    prompt: 'consent',
     state,
   })
 
