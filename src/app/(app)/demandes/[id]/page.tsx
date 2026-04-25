@@ -9,6 +9,7 @@ import ReplyForm from '@/components/detail/reply-form'
 import NotesEditor from '@/components/detail/notes-editor'
 import AssigneeSelector from '@/components/detail/assignee-selector'
 import AttachmentsPanel from '@/components/detail/attachments-panel'
+import PrintTicketButton from '@/components/detail/print-ticket-button'
 import Icon from '@/components/ui/icon'
 
 const EVENT_LABEL: Record<string, string> = {
@@ -67,12 +68,16 @@ export default async function DemandePage({ params }: { params: Promise<{ id: st
 
   const { id } = await params
   const restaurantId = session.user.restaurantId
-  const [demande, templates] = await Promise.all([
+  const [demande, templates, restaurant] = await Promise.all([
     fetchDemandeDetail(restaurantId, id),
     prisma.templateMessage.findMany({
       where: { restaurantId, actif: true },
       orderBy: [{ ordre: 'asc' }, { nom: 'asc' }],
       select: { id: true, nom: true, bodyTemplate: true },
+    }),
+    prisma.restaurant.findUnique({
+      where: { id: restaurantId },
+      select: { nom: true, adresse: true },
     }),
   ])
   if (!demande) notFound()
@@ -162,6 +167,26 @@ export default async function DemandePage({ params }: { params: Promise<{ id: st
             <Icon name="file" size={13} />
             Devis PDF
           </a>
+          {demande.statut === 'CONFIRMEE' && (
+            <PrintTicketButton
+              restaurantNom={restaurant?.nom ?? ''}
+              restaurantAdresse={restaurant?.adresse}
+              reference={demande.reference}
+              typeEvenement={demande.typeEvenement ? (EVENT_LABEL[demande.typeEvenement] ?? demande.typeEvenement) : null}
+              dateEvenement={demande.dateEvenement ? formatDate(demande.dateEvenement) : null}
+              heureDebut={demande.heureDebut}
+              heureFin={demande.heureFin}
+              nbInvites={demande.nbInvites}
+              espacenom={demande.espace?.nom}
+              contactNom={demande.contact.nom}
+              contactTelephone={demande.contact.telephone}
+              contactEmail={demande.contact.email}
+              contactSociete={demande.contact.societe}
+              contraintesAlimentaires={demande.contraintesAlimentaires}
+              notes={demande.notes}
+              assigneeNom={demande.assignee?.nom}
+            />
+          )}
           <StatusSelector demandeId={demande.id} currentStatut={demande.statut} />
         </div>
       </div>
