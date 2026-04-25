@@ -3,6 +3,7 @@
 import { signIn } from 'next-auth/react'
 import { useSearchParams } from 'next/navigation'
 import { Suspense } from 'react'
+import Image from 'next/image'
 
 function LoginContent() {
   const params = useSearchParams()
@@ -17,16 +18,9 @@ function LoginContent() {
       background: 'var(--color-bg)',
     }}>
       <div style={{ textAlign: 'center', maxWidth: 360 }}>
-        <h1 style={{
-          fontFamily: 'var(--font-serif)',
-          fontSize: '2.5rem',
-          fontWeight: 600,
-          color: 'var(--color-ink)',
-          marginBottom: '0.5rem',
-          letterSpacing: '-0.02em',
-        }}>
-          Robin
-        </h1>
+        <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '0.75rem' }}>
+          <Image src="/robine-logo.png" alt="Robine" width={220} height={52} priority style={{ objectFit: 'contain' }} />
+        </div>
         <p style={{
           color: 'var(--color-ink-secondary)',
           marginBottom: '2.5rem',

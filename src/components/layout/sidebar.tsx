@@ -2,6 +2,7 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
+import Image from 'next/image'
 import Icon from '@/components/ui/icon'
 
 const NAV = [
@@ -62,17 +63,8 @@ export default function Sidebar({ restaurantNom = 'Robin', userName, userInitial
     >
       {/* Brand */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '6px 10px 22px' }}>
-        <div style={{
-          width: 28, height: 28, borderRadius: 7,
-          background: 'var(--accent)', color: '#fff',
-          display: 'grid', placeItems: 'center',
-          fontWeight: 700, fontSize: 13, letterSpacing: '-0.02em',
-          flexShrink: 0,
-        }}>R</div>
-        <div>
-          <div style={{ fontWeight: 600, fontSize: 15, letterSpacing: '-0.01em' }}>Robin</div>
-          <div style={{ fontSize: 11, color: 'var(--ink-500)', marginTop: -1 }}>{restaurantNom}</div>
-        </div>
+        <Image src="/robine-logo-petit.png" alt="Robine" width={28} height={28} style={{ objectFit: 'contain', flexShrink: 0 }} />
+        <div style={{ fontSize: 11, color: 'var(--ink-500)' }}>{restaurantNom}</div>
       </div>
 
       {/* Navigation */}
