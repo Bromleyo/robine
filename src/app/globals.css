@@ -1,26 +1,134 @@
 @import "tailwindcss";
 
+/* ─── Robin Design Tokens ─── */
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  /* Palette — warm neutrals */
+  --bg: #F7F5F2;
+  --surface: #FFFFFF;
+  --surface-2: #FBF9F6;
+  --surface-sunken: #F1EEE8;
+  --border: #E9E4DC;
+  --border-strong: #D9D3C7;
+  --hairline: #EFEBE3;
+
+  /* Ink scale */
+  --ink-900: #1C1917;
+  --ink-700: #3F3A34;
+  --ink-500: #78726A;
+  --ink-400: #A09A90;
+  --ink-300: #C4BEB2;
+
+  /* Accent — rose/burgundy */
+  --accent: #9F1239;
+  --accent-hover: #881337;
+  --accent-soft: #FDF2F4;
+  --accent-soft-2: #FCE7EC;
+  --accent-ink: #6A0D27;
+
+  /* Status chips */
+  --st-new-bg: #EEF2FF;
+  --st-new-fg: #3730A3;
+  --st-progress-bg: #FEF3C7;
+  --st-progress-fg: #92400E;
+  --st-await-bg: #FEF2F2;
+  --st-await-fg: #991B1B;
+  --st-done-bg: #ECFDF5;
+  --st-done-fg: #065F46;
+
+  /* Shadows */
+  --shadow-sm: 0 1px 2px rgba(28,25,23,.04);
+  --shadow-md: 0 1px 3px rgba(28,25,23,.06), 0 4px 12px rgba(28,25,23,.04);
+  --shadow-lg: 0 8px 24px rgba(28,25,23,.08), 0 2px 6px rgba(28,25,23,.04);
+  --shadow-panel: -24px 0 48px rgba(28,25,23,.08);
+
+  /* Radii */
+  --r-sm: 6px;
+  --r-md: 8px;
+  --r-lg: 12px;
+  --r-xl: 16px;
 }
 
+/* ─── Tailwind v4 theme mapping ─── */
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --color-bg: var(--bg);
+  --color-surface: var(--surface);
+  --color-surface-2: var(--surface-2);
+  --color-surface-sunken: var(--surface-sunken);
+  --color-border: var(--border);
+  --color-border-strong: var(--border-strong);
+  --color-hairline: var(--hairline);
+
+  --color-ink-900: var(--ink-900);
+  --color-ink-700: var(--ink-700);
+  --color-ink-500: var(--ink-500);
+  --color-ink-400: var(--ink-400);
+  --color-ink-300: var(--ink-300);
+
+  --color-accent: var(--accent);
+  --color-accent-hover: var(--accent-hover);
+  --color-accent-soft: var(--accent-soft);
+  --color-accent-soft-2: var(--accent-soft-2);
+  --color-accent-ink: var(--accent-ink);
+
+  --color-st-new-bg: var(--st-new-bg);
+  --color-st-new-fg: var(--st-new-fg);
+  --color-st-progress-bg: var(--st-progress-bg);
+  --color-st-progress-fg: var(--st-progress-fg);
+  --color-st-await-bg: var(--st-await-bg);
+  --color-st-await-fg: var(--st-await-fg);
+  --color-st-done-bg: var(--st-done-bg);
+  --color-st-done-fg: var(--st-done-fg);
+
+  --font-sans: "Inter", "Helvetica Neue", Helvetica, system-ui, sans-serif;
+  --font-serif: "Fraunces", "Cormorant Garamond", Georgia, serif;
+  --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+
+  --radius-sm: var(--r-sm);
+  --radius-md: var(--r-md);
+  --radius-lg: var(--r-lg);
+  --radius-xl: var(--r-xl);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
-}
+/* ─── Base ─── */
+*, *::before, *::after { box-sizing: border-box; }
+
+html, body { height: 100%; margin: 0; }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--font-sans);
+  color: var(--ink-900);
+  background: var(--bg);
+  font-size: 14px;
+  line-height: 1.45;
+  -webkit-font-smoothing: antialiased;
+  font-feature-settings: "cv11", "ss01";
+  letter-spacing: -0.005em;
 }
+
+button { font-family: inherit; cursor: pointer; border: none; background: transparent; color: inherit; padding: 0; }
+svg { display: block; }
+
+/* ─── Event type tags ─── */
+.rb-tag { display: inline-flex; align-items: center; gap: 4px; padding: 2px 7px; border-radius: 4px; font-size: 10.5px; font-weight: 500; letter-spacing: 0.01em; }
+.rb-tag.wedding  { background: #FDF2F4; color: var(--accent-ink); }
+.rb-tag.corp     { background: #EEF2FF; color: #3730A3; }
+.rb-tag.birthday { background: #FEF3C7; color: #92400E; }
+.rb-tag.seminar  { background: #F0FDF4; color: #166534; }
+.rb-tag.private  { background: #F5F3FF; color: #5B21B6; }
+.rb-tag.baptism  { background: #FFF7ED; color: #9A3412; }
+
+/* ─── Avatar color swatches ─── */
+.av-1 { background: #8B5CF6; }
+.av-2 { background: #0EA5E9; }
+.av-3 { background: #F59E0B; }
+.av-4 { background: #10B981; }
+.av-5 { background: #EF4444; }
+.av-6 { background: #6366F1; }
+.av-7 { background: #EC4899; }
+.av-8 { background: #14B8A6; }
+.av-9 { background: #A16207; }
+
+/* ─── Scrollbar ─── */
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-thumb { background: var(--border-strong); border-radius: 3px; }
+::-webkit-scrollbar-track { background: transparent; }

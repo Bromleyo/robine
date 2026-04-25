@@ -1,0 +1,16 @@
+{
+  "crons": [
+    {
+      "path": "/api/cron/urgence",
+      "schedule": "0 * * * *"
+    },
+    {
+      "path": "/api/cron/renew-subscriptions",
+      "schedule": "0 6 * * *"
+    },
+    {
+      "path": "/api/cron/email-poll",
+      "schedule": "*/5 * * * *"
+    }
+  ]
+}

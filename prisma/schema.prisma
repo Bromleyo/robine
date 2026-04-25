@@ -1,0 +1,425 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum RoleUtilisateur {
+  ADMIN
+  RESPONSABLE
+  OBSERVATEUR
+}
+
+enum StatutDemande {
+  NOUVELLE
+  EN_COURS
+  ATTENTE_CLIENT
+  CONFIRMEE
+  ANNULEE
+  PERDUE
+}
+
+enum TypeEvenement {
+  MARIAGE
+  DINER_ENTREPRISE
+  ANNIVERSAIRE
+  SEMINAIRE
+  PRIVATISATION
+  BAPTEME
+  COCKTAIL
+  AUTRE
+}
+
+enum OrigineDemande {
+  EMAIL
+  FORMULAIRE
+  TELEPHONE
+}
+
+enum DirectionMessage {
+  IN
+  OUT
+}
+
+enum ObjectifTemplate {
+  PROPOSITION
+  RELANCE
+  DEVIS
+  CONFIRMATION
+  REFUS
+  AUTRE
+}
+
+enum TypeNotification {
+  NOUVELLE_DEMANDE
+  NOUVEAU_MESSAGE
+  DEMANDE_ASSIGNEE
+  CONFLIT_DETECTE
+  DEMANDE_URGENTE
+}
+
+model Restaurant {
+  id                      String    @id @default(cuid())
+  slug                    String    @unique
+  nom                     String
+  adresse                 String?
+  timezone                String    @default("Europe/Paris")
+  emailGroupes            String    @default("")
+  graphSubscriptionId     String?
+  graphSubscriptionExpiry DateTime?
+  referenceSeq            Int       @default(0)
+  createdAt               DateTime  @default(now())
+  updatedAt               DateTime  @updatedAt
+
+  memberships    Membership[]
+  invitations    Invitation[]
+  contacts       Contact[]
+  espaces        Espace[]
+  demandes       Demande[]
+  menus          Menu[]
+  templates      TemplateMessage[]
+  mailboxes      OutlookMailbox[]
+  rejectedEmails RejectedEmail[]
+  reglesIA       RegleIA?
+
+  @@map("restaurants")
+}
+
+model Membership {
+  id           String          @id @default(cuid())
+  userId       String
+  restaurantId String
+  role         RoleUtilisateur @default(RESPONSABLE)
+  invitedBy    String?
+  joinedAt     DateTime        @default(now())
+  createdAt    DateTime        @default(now())
+
+  user       User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  restaurant Restaurant @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, restaurantId])
+  @@index([restaurantId])
+  @@map("memberships")
+}
+
+model Invitation {
+  id           String          @id @default(cuid())
+  restaurantId String
+  email        String
+  role         RoleUtilisateur @default(RESPONSABLE)
+  token        String          @unique @default(cuid())
+  invitedBy    String
+  expiresAt    DateTime
+  acceptedAt   DateTime?
+  createdAt    DateTime        @default(now())
+
+  restaurant Restaurant @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+
+  @@unique([restaurantId, email])
+  @@map("invitations")
+}
+
+model User {
+  id          String    @id @default(cuid())
+  email       String    @unique
+  nom         String
+  avatarColor String    @default("#9F1239")
+  msAzureId   String?
+  lastLoginAt DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  memberships      Membership[]
+  assignedDemandes Demande[]      @relation("DemandeAssignee")
+  notifications    Notification[]
+  sentMessages     Message[]      @relation("MessageAuthor")
+
+  @@map("users")
+}
+
+model OutlookMailbox {
+  id             String    @id @default(cuid())
+  restaurantId   String
+  email          String
+  displayName    String?
+  provider       String    @default("MICROSOFT")
+  msGraphId      String?
+  subscriptionId String?
+  subscriptionExpiry DateTime?
+  msAccessToken  String?   @db.Text
+  msRefreshToken String?   @db.Text
+  msTokenExpiry  DateTime?
+  lastPollAt     DateTime?
+  actif          Boolean   @default(true)
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  restaurant     Restaurant      @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+  rejectedEmails RejectedEmail[]
+
+  @@unique([restaurantId, email])
+  @@map("outlook_mailboxes")
+}
+
+model Contact {
+  id                   String   @id @default(cuid())
+  restaurantId         String
+  email                String
+  nom                  String
+  telephone            String?
+  societe              String?
+  notes                String?
+  nbDemandesTotal      Int      @default(0)
+  nbDemandesConfirmees Int      @default(0)
+  caTotalEstimeCents   Int      @default(0)
+  anonymizedAt         DateTime?
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
+
+  restaurant Restaurant @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+  demandes   Demande[]
+
+  @@unique([restaurantId, email])
+  @@index([restaurantId])
+  @@map("contacts")
+}
+
+model Espace {
+  id               String   @id @default(cuid())
+  restaurantId     String
+  nom              String
+  capaciteMax      Int
+  capaciteMin      Int      @default(1)
+  description      String?
+  ordre            Int      @default(0)
+  actif            Boolean  @default(true)
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  restaurant Restaurant @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+  demandes   Demande[]
+
+  @@index([restaurantId])
+  @@map("espaces")
+}
+
+model Demande {
+  id                  String          @id @default(cuid())
+  restaurantId        String
+  reference           String
+  contactId           String
+  assigneeId          String?
+  espaceId            String?
+  menuSelectionneId   String?
+  statut              StatutDemande   @default(NOUVELLE)
+  typeEvenement       TypeEvenement?
+  origine             OrigineDemande
+  dateEvenement       DateTime?
+  heureDebut          String?
+  heureFin            String?
+  nbInvites           Int?
+  budgetIndicatifCents Int?
+  contraintesAlimentaires String[]    @default([])
+  notes               String?
+  classificationMethod String?
+  urgenceScore        Int             @default(0)
+  urgenceUpdatedAt    DateTime        @default(now())
+  conflitDetecte      Boolean         @default(false)
+  conflitOverride     Boolean         @default(false)
+  lastMessageAt       DateTime?
+  lastMessageDirection DirectionMessage?
+  confirmedAt         DateTime?
+  annuleAt            DateTime?
+  createdAt           DateTime        @default(now())
+  updatedAt           DateTime        @updatedAt
+
+  restaurant    Restaurant      @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+  contact       Contact         @relation(fields: [contactId], references: [id])
+  assignee      User?           @relation("DemandeAssignee", fields: [assigneeId], references: [id])
+  espace        Espace?         @relation(fields: [espaceId], references: [id])
+  menu          Menu?           @relation(fields: [menuSelectionneId], references: [id])
+  threads       Thread[]
+  pieces        PieceJointe[]
+  notifications Notification[]
+
+  @@unique([restaurantId, reference])
+  @@index([restaurantId, statut])
+  @@index([restaurantId, dateEvenement])
+  @@index([restaurantId, espaceId, dateEvenement])
+  @@map("demandes")
+}
+
+model Thread {
+  id                  String   @id @default(cuid())
+  demandeId           String
+  subject             String
+  messageIdRoot       String
+  references          String[] @default([])
+  graphConversationId String?
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+
+  demande  Demande   @relation(fields: [demandeId], references: [id], onDelete: Cascade)
+  messages Message[]
+
+  @@index([demandeId])
+  @@index([messageIdRoot])
+  @@map("threads")
+}
+
+model Message {
+  id               String           @id @default(cuid())
+  threadId         String
+  microsoftGraphId String?          @unique
+  messageIdHeader  String?
+  inReplyTo        String?
+  references       String[]         @default([])
+  direction        DirectionMessage
+  authorUserId     String?
+  fromEmail        String
+  fromName         String?
+  toEmails         String[]
+  ccEmails         String[]         @default([])
+  subject          String?
+  bodyHtml         String           @db.Text
+  bodyText         String?          @db.Text
+  isDraft          Boolean          @default(false)
+  wasGeneratedByAI Boolean          @default(false)
+  extractedData    Json?
+  sentAt           DateTime?
+  receivedAt       DateTime?
+  createdAt        DateTime         @default(now())
+
+  thread  Thread        @relation(fields: [threadId], references: [id], onDelete: Cascade)
+  author  User?         @relation("MessageAuthor", fields: [authorUserId], references: [id])
+  pieces  PieceJointe[]
+
+  @@index([threadId])
+  @@map("messages")
+}
+
+model Menu {
+  id               String   @id @default(cuid())
+  restaurantId     String
+  nom              String
+  description      String?  @db.Text
+  prixCents        Int
+  regimesSupportes String[] @default([])
+  joursDisponibles Int[]    @default([])
+  espacesCompatibles String[] @default([])
+  minConvives      Int?
+  maxConvives      Int?
+  pdfUrl           String?
+  actif            Boolean  @default(true)
+  ordre            Int      @default(0)
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  restaurant Restaurant @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+  demandes   Demande[]
+
+  @@index([restaurantId, actif])
+  @@map("menus")
+}
+
+model TemplateMessage {
+  id              String           @id @default(cuid())
+  restaurantId    String
+  nom             String
+  objectif        ObjectifTemplate
+  subjectTemplate String
+  bodyTemplate    String           @db.Text
+  variables       String[]         @default([])
+  actif           Boolean          @default(true)
+  ordre           Int              @default(0)
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+
+  restaurant Restaurant @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+
+  @@index([restaurantId])
+  @@map("templates")
+}
+
+model Notification {
+  id           String           @id @default(cuid())
+  userId       String
+  restaurantId String
+  type         TypeNotification
+  demandeId    String?
+  titre        String
+  body         String?
+  lu           Boolean          @default(false)
+  createdAt    DateTime         @default(now())
+
+  user    User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  demande Demande? @relation(fields: [demandeId], references: [id], onDelete: SetNull)
+
+  @@index([userId, lu])
+  @@map("notifications")
+}
+
+model PieceJointe {
+  id           String   @id @default(cuid())
+  restaurantId String
+  messageId    String?
+  demandeId    String?
+  storageUrl   String
+  filename     String
+  mimeType     String
+  sizeBytes    Int
+  createdAt    DateTime @default(now())
+
+  message Message? @relation(fields: [messageId], references: [id], onDelete: Cascade)
+  demande Demande? @relation(fields: [demandeId], references: [id], onDelete: Cascade)
+
+  @@index([messageId])
+  @@index([demandeId])
+  @@map("pieces_jointes")
+}
+
+model RejectedEmail {
+  id               String   @id @default(cuid())
+  restaurantId     String
+  mailboxId        String
+  microsoftGraphId String   @unique
+  fromEmail        String
+  fromName         String?
+  subject          String?
+  rejectReason     String
+  details          String?
+  bodySnippet      String?  @db.Text
+  receivedAt       DateTime
+  createdAt        DateTime @default(now())
+
+  restaurant Restaurant     @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+  mailbox    OutlookMailbox @relation(fields: [mailboxId], references: [id], onDelete: Cascade)
+
+  @@index([restaurantId, rejectReason])
+  @@index([restaurantId, receivedAt])
+  @@map("rejected_emails")
+}
+
+model RegleIA {
+  id           String   @id @default(cuid())
+  restaurantId String   @unique
+  config       Json     @default("{}")
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  restaurant Restaurant @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+
+  @@map("regles_ia")
+}
+
+model WebhookEvent {
+  id          String   @id @default(cuid())
+  source      String
+  externalId  String
+  processedAt DateTime @default(now())
+
+  @@unique([source, externalId])
+  @@map("webhook_events")
+}
