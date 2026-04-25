@@ -2,6 +2,7 @@ import { auth } from '@/auth'
 import { redirect } from 'next/navigation'
 import Topbar from '@/components/layout/topbar'
 import DashboardClient from '@/components/dashboard/dashboard-client'
+import RefreshButton from '@/components/dashboard/refresh-button'
 import { fetchDemandesKanban } from '@/lib/db/demandes'
 
 export default async function DashboardPage() {
@@ -41,7 +42,9 @@ export default async function DashboardPage() {
 
   return (
     <>
-      <Topbar title="Tableau de bord" subtitle="Toutes les demandes en cours" />
+      <Topbar title="Tableau de bord" subtitle="Toutes les demandes en cours">
+        <RefreshButton />
+      </Topbar>
 
       {/* Stats bar */}
       <div style={{

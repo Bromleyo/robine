@@ -26,6 +26,30 @@ export async function createMailSubscription(
   return res.json() as Promise<{ id: string; expirationDateTime: string }>
 }
 
+// Uses a delegated (user) access token — resource is /me/... relative to token owner
+export async function createMailSubscriptionDelegated(
+  accessToken: string,
+  notificationUrl: string,
+  clientState: string,
+): Promise<{ id: string; expirationDateTime: string }> {
+  const expirationDateTime = new Date(Date.now() + 3 * 24 * 60 * 60 * 1000).toISOString()
+
+  const res = await fetch(`${GRAPH_BASE}/subscriptions`, {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      changeType: 'created',
+      notificationUrl,
+      resource: 'me/mailFolders/inbox/messages',
+      expirationDateTime,
+      clientState,
+    }),
+  })
+
+  if (!res.ok) throw new Error(`Subscription creation failed (${res.status}): ${await res.text()}`)
+  return res.json() as Promise<{ id: string; expirationDateTime: string }>
+}
+
 export async function renewMailSubscription(subscriptionId: string): Promise<string> {
   const token = await getAppGraphToken()
   const expirationDateTime = new Date(Date.now() + 3 * 24 * 60 * 60 * 1000).toISOString()
