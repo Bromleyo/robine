@@ -33,7 +33,8 @@ export async function GET(req: NextRequest) {
   try {
     return await handleCallback(req, code, restaurantId)
   } catch (err) {
-    console.error('[ms-mailbox-callback] unexpected error', err)
+    const msg = err instanceof Error ? err.message : String(err)
+    console.error('[ms-mailbox-callback] unexpected error:', msg)
     return NextResponse.redirect(`${process.env.NEXTAUTH_URL}/config/mailboxes?error=ms_internal_error`)
   }
 }
