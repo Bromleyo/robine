@@ -86,7 +86,7 @@ export async function extractDemandeFromEmail(
     model: 'claude-haiku-4-5-20251001',
     max_tokens: 1024,
     system: SYSTEM_PROMPT,
-    messages: [{ role: 'user', content: `Email de: ${senderEmail}\n\nContenu:\n${emailText.slice(0, 4000)}` }],
+    messages: [{ role: 'user', content: `Email de: ${senderEmail}\n\n<email_content>\n${emailText.slice(0, 4000)}\n</email_content>` }],
   })
 
   const first = message.content[0]

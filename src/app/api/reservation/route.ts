@@ -23,7 +23,7 @@ export async function POST(req: NextRequest) {
   const body = parsed.data
 
   const restaurant = await prisma.restaurant.findUnique({
-    where: { id: body.restaurantId },
+    where: { slug: body.restaurantSlug },
     select: { id: true },
   })
   if (!restaurant) return NextResponse.json({ error: 'Restaurant introuvable' }, { status: 404 })

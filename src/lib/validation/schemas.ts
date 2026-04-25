@@ -10,7 +10,7 @@ export const TypeEvenementSchema = z.enum([
 ])
 
 export const ReservationPubliqueSchema = z.object({
-  restaurantId: z.string().uuid(),
+  restaurantSlug: z.string().min(1).max(100).trim(),
   contactNom: z.string().min(1).max(120).trim(),
   contactEmail: z.string().email().max(200).toLowerCase(),
   contactTelephone: z.string().max(30).trim().optional(),

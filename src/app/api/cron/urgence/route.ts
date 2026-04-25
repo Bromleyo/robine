@@ -1,13 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/db/prisma'
 import { calculerUrgenceDemande } from '@/lib/business/urgence'
+import { verifyCronRequest } from '@/lib/cron-auth'
 
 export async function GET(req: NextRequest) {
-  const secret = req.headers.get('x-cron-secret')
-
-  if (!secret || secret !== process.env.CRON_SECRET) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-  }
+  const authError = verifyCronRequest(req)
+  if (authError) return authError
 
   const now = new Date()
   const demandes = await prisma.demande.findMany({

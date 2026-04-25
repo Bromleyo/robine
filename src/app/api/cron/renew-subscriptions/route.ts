@@ -2,12 +2,11 @@ import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/db/prisma'
 import { renewMailSubscription } from '@/lib/graph/subscription'
 import { logger } from '@/lib/logger'
+import { verifyCronRequest } from '@/lib/cron-auth'
 
 export async function GET(req: NextRequest) {
-  const secret = req.headers.get('x-cron-secret')
-  if (!secret || secret !== process.env.CRON_SECRET) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-  }
+  const authError = verifyCronRequest(req)
+  if (authError) return authError
 
   const threshold = new Date(Date.now() + 24 * 60 * 60 * 1000)
 

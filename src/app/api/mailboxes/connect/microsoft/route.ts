@@ -26,6 +26,6 @@ export async function GET(_req: NextRequest) {
   })
 
   return NextResponse.redirect(
-    `https://login.microsoftonline.com/common/oauth2/v2.0/authorize?${params}`
+    `https://login.microsoftonline.com/${process.env.AZURE_AD_TENANT_ID}/oauth2/v2.0/authorize?${params}`
   )
 }

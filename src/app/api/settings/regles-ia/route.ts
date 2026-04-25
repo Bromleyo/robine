@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { auth } from '@/auth'
 import { prisma } from '@/lib/db/prisma'
+import { requireRole } from '@/lib/auth/require-role'
 
 export async function GET() {
   const session = await auth()
@@ -17,6 +18,8 @@ export async function GET() {
 export async function PUT(req: NextRequest) {
   const session = await auth()
   if (!session?.user?.restaurantId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  const forbidden = requireRole(session.user.role, 'RESPONSABLE')
+  if (forbidden) return forbidden
 
   let body: unknown
   try {

@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/db/prisma'
+import { verifyCronRequest } from '@/lib/cron-auth'
+import { encryptToken, decryptToken } from '@/lib/crypto/token-cipher'
 import { refreshGoogleToken } from '@/lib/google/auth'
 import { listGmailMessageIds, fetchGmailMessage } from '@/lib/google/gmail'
 import { processIncomingEmail } from '@/lib/email/process-incoming'
@@ -9,7 +11,7 @@ import { logger } from '@/lib/logger'
 async function refreshMicrosoftDelegatedToken(
   refreshToken: string,
 ): Promise<{ access_token: string; expires_in: number }> {
-  const res = await fetch('https://login.microsoftonline.com/common/oauth2/v2.0/token', {
+  const res = await fetch(`https://login.microsoftonline.com/${process.env.AZURE_AD_TENANT_ID}/oauth2/v2.0/token`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
     body: new URLSearchParams({
@@ -85,10 +87,8 @@ function msMessageToNormalized(msg: MicrosoftMailMessage) {
 }
 
 export async function GET(req: NextRequest) {
-  const authHeader = req.headers.get('authorization')
-  if (authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-  }
+  const authError = verifyCronRequest(req)
+  if (authError) return authError
 
   const mailboxes = await prisma.outlookMailbox.findMany({
     where: { actif: true, msRefreshToken: { not: null }, subscriptionId: null },
@@ -111,25 +111,25 @@ export async function GET(req: NextRequest) {
     try {
       const needsRefresh = !mailbox.msTokenExpiry || mailbox.msTokenExpiry.getTime() - Date.now() < 5 * 60_000
 
-      let accessToken = mailbox.msAccessToken!
+      let accessToken = decryptToken(mailbox.msAccessToken!)
       if (needsRefresh) {
         if (mailbox.provider === 'GMAIL') {
-          const refreshed = await refreshGoogleToken(mailbox.msRefreshToken!)
+          const refreshed = await refreshGoogleToken(decryptToken(mailbox.msRefreshToken!))
           accessToken = refreshed.access_token
           await prisma.outlookMailbox.update({
             where: { id: mailbox.id },
             data: {
-              msAccessToken: refreshed.access_token,
+              msAccessToken: encryptToken(refreshed.access_token),
               msTokenExpiry: new Date(Date.now() + refreshed.expires_in * 1000),
             },
           })
         } else {
-          const refreshed = await refreshMicrosoftDelegatedToken(mailbox.msRefreshToken!)
+          const refreshed = await refreshMicrosoftDelegatedToken(decryptToken(mailbox.msRefreshToken!))
           accessToken = refreshed.access_token
           await prisma.outlookMailbox.update({
             where: { id: mailbox.id },
             data: {
-              msAccessToken: refreshed.access_token,
+              msAccessToken: encryptToken(refreshed.access_token),
               msTokenExpiry: new Date(Date.now() + refreshed.expires_in * 1000),
             },
           })
