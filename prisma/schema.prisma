@@ -78,6 +78,7 @@ model Restaurant {
   contacts       Contact[]
   espaces        Espace[]
   imprimantes    Imprimante[]
+  printJobs      PrintJob[]
   demandes       Demande[]
   menus          Menu[]
   templates      TemplateMessage[]
@@ -430,6 +431,22 @@ model Imprimante {
 
   @@index([restaurantId])
   @@map("imprimantes")
+}
+
+model PrintJob {
+  id           String   @id @default(cuid())
+  restaurantId String
+  demandeId    String
+  contenu      Json
+  status       String   @default("PENDING")
+  imprimanteIp String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  restaurant Restaurant @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+
+  @@index([restaurantId, status])
+  @@map("print_jobs")
 }
 
 model WebhookEvent {

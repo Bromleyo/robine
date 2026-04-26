@@ -68,7 +68,7 @@ export default async function DemandePage({ params }: { params: Promise<{ id: st
 
   const { id } = await params
   const restaurantId = session.user.restaurantId
-  const [demande, templates, restaurant] = await Promise.all([
+  const [demande, templates, restaurant, imprimante] = await Promise.all([
     fetchDemandeDetail(restaurantId, id),
     prisma.templateMessage.findMany({
       where: { restaurantId, actif: true },
@@ -78,6 +78,11 @@ export default async function DemandePage({ params }: { params: Promise<{ id: st
     prisma.restaurant.findUnique({
       where: { id: restaurantId },
       select: { nom: true, adresse: true },
+    }),
+    prisma.imprimante.findFirst({
+      where: { restaurantId, actif: true },
+      orderBy: { createdAt: 'asc' },
+      select: { adresseIp: true },
     }),
   ])
   if (!demande) notFound()
@@ -169,6 +174,8 @@ export default async function DemandePage({ params }: { params: Promise<{ id: st
           </a>
           {demande.statut === 'CONFIRMEE' && (
             <PrintTicketButton
+              demandeId={demande.id}
+              imprimanteIp={imprimante?.adresseIp}
               restaurantNom={restaurant?.nom ?? ''}
               restaurantAdresse={restaurant?.adresse}
               reference={demande.reference}
