@@ -2,6 +2,7 @@ import { auth } from '@/auth'
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/db/prisma'
 import Anthropic from '@anthropic-ai/sdk'
+import { getRelevantExamples } from '@/lib/rag/examples'
 
 const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
 
@@ -45,7 +46,9 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   if (demande.espace) details.push(`Espace : ${demande.espace.nom}`)
   if (demande.contraintesAlimentaires.length > 0) details.push(`Contraintes : ${demande.contraintesAlimentaires.join(', ')}`)
 
-  const contextParts: string[] = []
+  const examples = await getRelevantExamples(session.user.restaurantId, demande.typeEvenement)
+
+  const contextParts: string[] = [...examples]
   if (details.length > 0) contextParts.push(`INFORMATIONS DE LA DEMANDE :\n${details.join('\n')}`)
 
   if (allMessages.length > 0) {

@@ -25,6 +25,7 @@ const NAV = [
       { id: 'mailboxes', href: '/config/mailboxes', label: 'Boîtes mail', icon: 'mail' as const },
       { id: 'emails-rejetes', href: '/config/emails-rejetes', label: 'Emails rejetés', icon: 'inbox' as const },
       { id: 'regles-ia', href: '/config/regles-ia', label: 'Règles IA', icon: 'sparkle' as const },
+      { id: 'conversations', href: '/config/conversations', label: 'Exemples IA', icon: 'sparkle' as const },
       { id: 'imprimantes', href: '/config/imprimantes', label: 'Imprimantes', icon: 'print' as const },
     ],
   },
