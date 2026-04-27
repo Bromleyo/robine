@@ -8,7 +8,6 @@ import Anthropic from '@anthropic-ai/sdk'
 
 export const maxDuration = 300
 
-const GRAPH_BASE = 'https://graph.microsoft.com/v1.0'
 const GRAPH_BATCH_URL = 'https://graph.microsoft.com/v1.0/$batch'
 
 const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
@@ -47,15 +46,12 @@ async function batchFetchConversations(
 
     const batchRes = await fetch(GRAPH_BATCH_URL, {
       method: 'POST',
-      headers: {
-        Authorization: `Bearer ${token}`,
-        'Content-Type': 'application/json',
-      },
+      headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
       body: JSON.stringify({ requests }),
     })
 
     if (!batchRes.ok) {
-      console.error('[analyze] Batch request failed', batchRes.status)
+      console.error('[ai-personalization/configure] Batch request failed', batchRes.status)
       continue
     }
 
@@ -78,12 +74,10 @@ async function batchFetchConversations(
 
 function formatThread(idx: number, total: number, messages: MsgFull[], mailboxEmail: string): string {
   const lines: string[] = [`=== Thread ${idx + 1}/${total} ===`]
-
   for (const msg of messages) {
     const date = new Date(msg.receivedDateTime).toLocaleDateString('fr-FR', {
       day: '2-digit', month: '2-digit', year: 'numeric',
-      hour: '2-digit', minute: '2-digit',
-      timeZone: 'Europe/Paris',
+      hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Paris',
     })
     const fromAddr = msg.from.emailAddress.address
     const fromName = msg.from.emailAddress.name || fromAddr
@@ -91,7 +85,6 @@ function formatThread(idx: number, total: number, messages: MsgFull[], mailboxEm
     const bodyText = msg.body.contentType === 'html' ? htmlToText(msg.body.content) : msg.body.content
     lines.push(`[${date}] ${role} (${fromName} <${fromAddr}>) :\n${bodyText.slice(0, 2000)}`)
   }
-
   return lines.join('\n\n')
 }
 
@@ -154,31 +147,29 @@ export async function POST(req: NextRequest) {
   const forbidden = requireRole(session.user.role, 'ADMIN')
   if (forbidden) return forbidden
 
-  const body = await req.json() as { mailboxId?: string; conversationIds?: string[] }
+  const body = await req.json() as { mailboxId?: string; conversationIds?: string[]; keywords?: string[] }
   if (!body.mailboxId || !Array.isArray(body.conversationIds) || body.conversationIds.length === 0) {
     return NextResponse.json({ error: 'mailboxId et conversationIds requis' }, { status: 400 })
   }
 
   const mailbox = await prisma.outlookMailbox.findFirst({
     where: { id: body.mailboxId, restaurantId: session.user.restaurantId },
-    select: { id: true, email: true },
+    select: { id: true, email: true, displayName: true },
   })
   if (!mailbox) {
     return NextResponse.json({ error: 'Mailbox introuvable' }, { status: 404 })
   }
 
   const token = await getAppGraphToken()
-  const mailboxEmail = mailbox.email
-  const conversationIds = body.conversationIds
-
-  const convMap = await batchFetchConversations(mailboxEmail, conversationIds, token)
+  const keywords = Array.isArray(body.keywords) && body.keywords.length > 0 ? body.keywords : []
+  const convMap = await batchFetchConversations(mailbox.email, body.conversationIds, token)
 
   const threadTexts: string[] = []
   let convIdx = 0
-  for (const cid of conversationIds) {
+  for (const cid of body.conversationIds) {
     const messages = convMap.get(cid) ?? []
     if (messages.length === 0) continue
-    threadTexts.push(formatThread(convIdx, conversationIds.length, messages, mailboxEmail))
+    threadTexts.push(formatThread(convIdx, body.conversationIds.length, messages, mailbox.email))
     convIdx++
   }
 
@@ -194,55 +185,39 @@ export async function POST(req: NextRequest) {
   let totalOutputTokens = 0
 
   if (estimatedTokens > TOKEN_SPLIT_THRESHOLD) {
-    console.warn(`[analyze] Large corpus ~${estimatedTokens} estimated tokens — splitting into 2 batches`)
-
+    console.warn(`[configure] Large corpus ~${estimatedTokens} tokens — splitting`)
     const half = Math.floor(threadTexts.length / 2)
-    const corpus1 = threadTexts.slice(0, half).join(SEP)
-    const corpus2 = threadTexts.slice(half).join(SEP)
 
     const [res1, res2] = await Promise.all([
       anthropic.messages.create({
-        model: 'claude-sonnet-4-6',
-        max_tokens: 4000,
-        temperature: 0.3,
+        model: 'claude-sonnet-4-6', max_tokens: 4000, temperature: 0.3,
         system: SYSTEM_PROMPT,
-        messages: [{ role: 'user', content: buildUserPrompt(corpus1, half, 'batch 1/2') }],
+        messages: [{ role: 'user', content: buildUserPrompt(threadTexts.slice(0, half).join(SEP), half, 'batch 1/2') }],
       }),
       anthropic.messages.create({
-        model: 'claude-sonnet-4-6',
-        max_tokens: 4000,
-        temperature: 0.3,
+        model: 'claude-sonnet-4-6', max_tokens: 4000, temperature: 0.3,
         system: SYSTEM_PROMPT,
-        messages: [{ role: 'user', content: buildUserPrompt(corpus2, threadTexts.length - half, 'batch 2/2') }],
+        messages: [{ role: 'user', content: buildUserPrompt(threadTexts.slice(half).join(SEP), threadTexts.length - half, 'batch 2/2') }],
       }),
     ])
 
     totalInputTokens = res1.usage.input_tokens + res2.usage.input_tokens
     totalOutputTokens = res1.usage.output_tokens + res2.usage.output_tokens
-
     const draft1 = res1.content[0]?.type === 'text' ? res1.content[0].text : ''
     const draft2 = res2.content[0]?.type === 'text' ? res2.content[0].text : ''
 
     const mergeRes = await anthropic.messages.create({
-      model: 'claude-sonnet-4-6',
-      max_tokens: 8000,
-      temperature: 0.3,
+      model: 'claude-sonnet-4-6', max_tokens: 8000, temperature: 0.3,
       system: 'Tu es un expert en analyse de communications restaurant. Fusionne les deux analyses partielles en un document Markdown cohérent.',
-      messages: [{
-        role: 'user',
-        content: `Voici deux analyses partielles du même corpus. Fusionne-les en un document Markdown unifié qui suit la structure des 10 sections : 1. Ton et registre, 2. Structure type, 3. Questions de qualification, 4. Formules récurrentes, 5. Gestion des prix, 6. Gestion des objections, 7. Espaces et capacités, 8. Suivi et relances, 9. Particularités culturelles, 10. Anti-patterns.\n\n--- ANALYSE 1 ---\n${draft1}\n\n--- ANALYSE 2 ---\n${draft2}`,
-      }],
+      messages: [{ role: 'user', content: `Fusionne en un document Markdown unifié (10 sections).\n\n--- ANALYSE 1 ---\n${draft1}\n\n--- ANALYSE 2 ---\n${draft2}` }],
     })
-
     totalInputTokens += mergeRes.usage.input_tokens
     totalOutputTokens += mergeRes.usage.output_tokens
     markdown = mergeRes.content[0]?.type === 'text' ? mergeRes.content[0].text : draft1
 
   } else {
     const res = await anthropic.messages.create({
-      model: 'claude-sonnet-4-6',
-      max_tokens: 8000,
-      temperature: 0.3,
+      model: 'claude-sonnet-4-6', max_tokens: 8000, temperature: 0.3,
       system: SYSTEM_PROMPT,
       messages: [{ role: 'user', content: buildUserPrompt(corpus, threadsAnalyzed) }],
     })
@@ -251,9 +226,23 @@ export async function POST(req: NextRequest) {
     markdown = res.content[0]?.type === 'text' ? res.content[0].text : ''
   }
 
+  const record = await prisma.aIPersonalization.upsert({
+    where: { restaurantId: session.user.restaurantId },
+    create: { restaurantId: session.user.restaurantId, mailboxId: mailbox.id, threadsAnalyzed, rulesMarkdown: markdown, keywords },
+    update: { mailboxId: mailbox.id, threadsAnalyzed, rulesMarkdown: markdown, keywords },
+  })
+
   return NextResponse.json({
-    markdown,
-    threadsAnalyzed,
+    personalization: {
+      id: record.id,
+      mailboxId: record.mailboxId,
+      mailboxEmail: mailbox.email,
+      mailboxDisplayName: mailbox.displayName,
+      threadsAnalyzed: record.threadsAnalyzed,
+      rulesMarkdown: record.rulesMarkdown,
+      keywords: record.keywords,
+      createdAt: record.createdAt.toISOString(),
+    },
     tokensUsed: { input: totalInputTokens, output: totalOutputTokens },
   })
 }

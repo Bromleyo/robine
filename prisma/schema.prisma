@@ -85,6 +85,7 @@ model Restaurant {
   mailboxes            OutlookMailbox[]
   rejectedEmails       RejectedEmail[]
   reglesIA             RegleIA?
+  aiPersonalization    AIPersonalization?
 
   @@map("restaurants")
 }
@@ -158,8 +159,9 @@ model OutlookMailbox {
   createdAt      DateTime  @default(now())
   updatedAt      DateTime  @updatedAt
 
-  restaurant     Restaurant      @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
-  rejectedEmails RejectedEmail[]
+  restaurant        Restaurant         @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+  rejectedEmails    RejectedEmail[]
+  aiPersonalizations AIPersonalization[]
 
   @@unique([restaurantId, email])
   @@map("outlook_mailboxes")
@@ -447,6 +449,22 @@ model PrintJob {
 
   @@index([restaurantId, status])
   @@map("print_jobs")
+}
+
+model AIPersonalization {
+  id              String   @id @default(cuid())
+  restaurantId    String   @unique
+  mailboxId       String
+  threadsAnalyzed Int
+  rulesMarkdown   String   @db.Text
+  keywords        String[]
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  restaurant Restaurant     @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+  mailbox    OutlookMailbox @relation(fields: [mailboxId], references: [id])
+
+  @@map("ai_personalizations")
 }
 
 model WebhookEvent {

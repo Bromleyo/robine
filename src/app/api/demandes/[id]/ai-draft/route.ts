@@ -34,6 +34,11 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
 
   if (!demande) return NextResponse.json({ error: 'Not found' }, { status: 404 })
 
+  const aiPersonalization = await prisma.aIPersonalization.findUnique({
+    where: { restaurantId: session.user.restaurantId },
+    select: { rulesMarkdown: true },
+  })
+
   const allMessages = demande.threads.flatMap(t => t.messages)
 
   const details: string[] = []
@@ -61,7 +66,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
 Rédige une réponse email professionnelle, chaleureuse et concise en français, au nom du restaurant.
 Style : poli, élégant. Utilise "Madame" ou "Monsieur" si le prénom permet de déduire le genre, sinon "Madame, Monsieur".
 Signe toujours : "Bien cordialement,\n[L'équipe événementielle]"
-Réponds UNIQUEMENT avec le corps du mail, sans objet ni balises HTML.`
+Réponds UNIQUEMENT avec le corps du mail, sans objet ni balises HTML.${aiPersonalization?.rulesMarkdown ? `\n\n---\n\nRÈGLES PERSONNALISÉES DU RESTAURANT (à appliquer impérativement) :\n${aiPersonalization.rulesMarkdown}` : ''}`
 
   let userContent: string
   if (body.previousDraft && body.instruction) {

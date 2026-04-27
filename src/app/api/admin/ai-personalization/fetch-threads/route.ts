@@ -14,7 +14,7 @@ const SPAM_PATTERNS = [
   'notification@', 'donotreply@', 'mailer-daemon@', 'postmaster@',
 ]
 
-const SUBJECT_KEYWORDS = [
+export const DEFAULT_KEYWORDS = [
   'privatisation', 'privatiser', 'mariage', 'noces', 'séminaire',
   'seminaire', 'cocktail', 'anniversaire', 'baptême', 'bapteme',
   'communion', 'enterrement', 'groupe', 'événement', 'evenement',
@@ -38,7 +38,7 @@ export async function POST(req: NextRequest) {
   const forbidden = requireRole(session.user.role, 'ADMIN')
   if (forbidden) return forbidden
 
-  const body = await req.json() as { mailboxId?: string }
+  const body = await req.json() as { mailboxId?: string; keywords?: string[] }
   if (!body.mailboxId) {
     return NextResponse.json({ error: 'mailboxId requis' }, { status: 400 })
   }
@@ -51,10 +51,14 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Mailbox introuvable' }, { status: 404 })
   }
 
+  const keywords = Array.isArray(body.keywords) && body.keywords.length > 0
+    ? body.keywords
+    : DEFAULT_KEYWORDS
+
   const token = await getAppGraphToken()
   const mailboxEmail = mailbox.email
 
-  const kql = SUBJECT_KEYWORDS.map(k => `subject:${k}`).join(' OR ')
+  const kql = keywords.map(k => `subject:${k}`).join(' OR ')
   const selectFields = 'id,conversationId,subject,from,receivedDateTime,body'
   const searchParam = encodeURIComponent(`"${kql}"`)
   const baseUrl = `${GRAPH_BASE}/users/${encodeURIComponent(mailboxEmail)}/messages?$search=${searchParam}&$select=${selectFields}&$top=100`
@@ -67,7 +71,7 @@ export async function POST(req: NextRequest) {
     const res = await fetch(nextUrl, { headers: { Authorization: `Bearer ${token}` } })
     if (!res.ok) {
       const text = await res.text()
-      console.error('[fetch-threads] Graph error', res.status, text)
+      console.error('[ai-personalization/fetch-threads] Graph error', res.status, text)
       return NextResponse.json({ error: 'Erreur Graph API', detail: text }, { status: 502 })
     }
     const data = await res.json() as { value: MsgRaw[]; '@odata.nextLink'?: string }
@@ -77,7 +81,6 @@ export async function POST(req: NextRequest) {
   }
 
   const totalFetched = allMessages.length
-
   const since12m = new Date()
   since12m.setFullYear(since12m.getFullYear() - 1)
 
@@ -134,7 +137,6 @@ export async function POST(req: NextRequest) {
   }
 
   const afterAutoFilter = threadMap.size
-
   const allThreads = Array.from(threadMap.values())
   const rejectedNoReplyFromUs = allThreads.filter(t => !t.hasReplyFromUs).length
   const rejectedTooFewMessages = allThreads.filter(t => t.hasReplyFromUs && t.messageCount < 2).length
@@ -150,8 +152,10 @@ export async function POST(req: NextRequest) {
   }
 
   const rejectedThreads = allThreads.filter(t => !(t.messageCount >= 2 && t.hasReplyFromUs))
-  const shuffled = rejectedThreads.map(t => t.subject).sort(() => Math.random() - 0.5)
-  const sampleRejectedSubjects = shuffled.slice(0, 10)
+  const sampleRejectedSubjects = rejectedThreads
+    .map(t => t.subject)
+    .sort(() => Math.random() - 0.5)
+    .slice(0, 10)
 
   const now = new Date()
   const diagnostics = {
@@ -162,7 +166,7 @@ export async function POST(req: NextRequest) {
       noReplyFromUs: rejectedNoReplyFromUs,
       tooFewMessages: allThreads.filter(t => t.hasReplyFromUs && t.messageCount < 3).length,
     },
-    searchKeywordsUsed: SUBJECT_KEYWORDS,
+    searchKeywordsUsed: keywords,
     dateRangeStart: since12m.toISOString(),
     dateRangeEnd: now.toISOString(),
     sampleRejectedSubjects,
