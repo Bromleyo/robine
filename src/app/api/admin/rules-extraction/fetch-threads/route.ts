@@ -135,9 +135,19 @@ export async function POST(req: NextRequest) {
 
   const afterAutoFilter = threadMap.size
 
-  const threads = Array.from(threadMap.values())
-    .filter(t => t.messageCount >= 3 && t.hasReplyFromUs)
+  const allThreads = Array.from(threadMap.values())
+  const rejectedNoReplyFromUs = allThreads.filter(t => !t.hasReplyFromUs).length
+  const rejectedTooFewMessages = allThreads.filter(t => t.hasReplyFromUs && t.messageCount < 2).length
+
+  const threads = allThreads
+    .filter(t => t.messageCount >= 2 && t.hasReplyFromUs)
     .sort((a, b) => b.messageCount - a.messageCount)
 
-  return NextResponse.json({ threads, totalFetched, afterAutoFilter })
+  const rejectionStats = {
+    rejectedNoReplyFromUs,
+    rejectedTooFewMessages,
+    rejectedAutoFilter: totalFetched - filtered.length,
+  }
+
+  return NextResponse.json({ threads, totalFetched, afterAutoFilter, rejectionStats })
 }

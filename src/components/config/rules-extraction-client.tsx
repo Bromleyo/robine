@@ -77,7 +77,11 @@ export default function RulesExtractionClient({ mailboxes }: Props) {
   const [deselected, setDeselected] = useState<Set<string>>(new Set())
   const [markdown, setMarkdown] = useState('')
   const [tokensUsed, setTokensUsed] = useState<{ input: number; output: number } | null>(null)
-  const [fetchStats, setFetchStats] = useState<{ totalFetched: number; afterAutoFilter: number } | null>(null)
+  const [fetchStats, setFetchStats] = useState<{
+    totalFetched: number
+    afterAutoFilter: number
+    rejectionStats?: { rejectedNoReplyFromUs: number; rejectedTooFewMessages: number; rejectedAutoFilter: number }
+  } | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [copied, setCopied] = useState(false)
   const [hoveredPreview, setHoveredPreview] = useState<string | null>(null)
@@ -134,6 +138,7 @@ export default function RulesExtractionClient({ mailboxes }: Props) {
         threads?: ThreadItem[]
         totalFetched?: number
         afterAutoFilter?: number
+        rejectionStats?: { rejectedNoReplyFromUs: number; rejectedTooFewMessages: number; rejectedAutoFilter: number }
         error?: string
       }
       if (!res.ok) {
@@ -142,7 +147,11 @@ export default function RulesExtractionClient({ mailboxes }: Props) {
         return
       }
       setThreads(data.threads ?? [])
-      setFetchStats({ totalFetched: data.totalFetched ?? 0, afterAutoFilter: data.afterAutoFilter ?? 0 })
+      setFetchStats({
+        totalFetched: data.totalFetched ?? 0,
+        afterAutoFilter: data.afterAutoFilter ?? 0,
+        rejectionStats: data.rejectionStats,
+      })
       setPhase('validation')
     } catch {
       setError('Erreur réseau')
@@ -269,6 +278,22 @@ export default function RulesExtractionClient({ mailboxes }: Props) {
             {fetchStats && (
               <div style={{ fontSize: 12, color: 'var(--ink-400)', marginTop: 2 }}>
                 {fetchStats.totalFetched} messages récupérés · {fetchStats.afterAutoFilter} threads uniques · {threads.length} retenus après filtre
+              </div>
+            )}
+            {fetchStats?.rejectionStats && (
+              <div style={{ fontSize: 11, color: 'var(--ink-400)', marginTop: 4, display: 'flex', gap: 16 }}>
+                <span>
+                  <span style={{ color: 'var(--ink-500)', fontWeight: 500 }}>{fetchStats.rejectionStats.rejectedNoReplyFromUs}</span>
+                  {' '}sans réponse de notre part
+                </span>
+                <span>
+                  <span style={{ color: 'var(--ink-500)', fontWeight: 500 }}>{fetchStats.rejectionStats.rejectedTooFewMessages}</span>
+                  {' '}trop courts (1 message)
+                </span>
+                <span>
+                  <span style={{ color: 'var(--ink-500)', fontWeight: 500 }}>{fetchStats.rejectionStats.rejectedAutoFilter}</span>
+                  {' '}filtrés (spam/date)
+                </span>
               </div>
             )}
           </div>
