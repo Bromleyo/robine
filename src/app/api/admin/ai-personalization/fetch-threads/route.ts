@@ -98,6 +98,8 @@ export async function POST(req: NextRequest) {
     firstMessagePreview: string
     messageCount: number
     hasReplyFromUs: boolean
+    _participants: Set<string>
+    _messagesSummary: { from: string; date: string }[]
   }
 
   const threadMap = new Map<string, ThreadAcc>()
@@ -119,11 +121,17 @@ export async function POST(req: NextRequest) {
         firstMessagePreview: bodyText.slice(0, 250),
         messageCount: 0,
         hasReplyFromUs: false,
+        _participants: new Set<string>(),
+        _messagesSummary: [],
       })
     }
 
     const acc = threadMap.get(cid)!
     acc.messageCount++
+    acc._participants.add(msg.from.emailAddress.address)
+    if (acc._messagesSummary.length < 20) {
+      acc._messagesSummary.push({ from: msg.from.emailAddress.address, date: msg.receivedDateTime })
+    }
     if (isFromMailbox) acc.hasReplyFromUs = true
 
     if (new Date(msg.receivedDateTime) < new Date(acc.firstMessageDate)) {
@@ -157,9 +165,37 @@ export async function POST(req: NextRequest) {
     .sort(() => Math.random() - 0.5)
     .slice(0, 10)
 
+  // Date range and monthly distribution across all fetched messages
+  const allDates = allMessages.map(m => m.receivedDateTime).sort()
+  const oldestMessageDate = allDates[0] ?? null
+  const newestMessageDate = allDates[allDates.length - 1] ?? null
+
+  const messagesPerMonth: Record<string, number> = {}
+  for (const msg of allMessages) {
+    const d = new Date(msg.receivedDateTime)
+    const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
+    messagesPerMonth[key] = (messagesPerMonth[key] ?? 0) + 1
+  }
+
+  // 3 random no-reply threads with participants + message summary
+  const noReplyThreads = allThreads.filter(t => !t.hasReplyFromUs)
+  const sampleNoReplyThreads = noReplyThreads
+    .sort(() => Math.random() - 0.5)
+    .slice(0, 3)
+    .map(t => ({
+      subject: t.subject,
+      participants: Array.from(t._participants),
+      messagesSummary: t._messagesSummary
+        .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
+        .slice(0, 5),
+    }))
+
   const now = new Date()
   const diagnostics = {
-    totalMessagesFromGraph: totalFetched,
+    graphSearchTotalReturned: totalFetched,
+    oldestMessageDate,
+    newestMessageDate,
+    messagesPerMonth,
     uniqueThreads: threadMap.size,
     rejectionBreakdown: {
       autoFilteredSenders: totalFetched - filtered.length,
@@ -170,6 +206,7 @@ export async function POST(req: NextRequest) {
     dateRangeStart: since12m.toISOString(),
     dateRangeEnd: now.toISOString(),
     sampleRejectedSubjects,
+    sampleNoReplyThreads,
   }
 
   return NextResponse.json({ threads, totalFetched, afterAutoFilter, rejectionStats, diagnostics })
