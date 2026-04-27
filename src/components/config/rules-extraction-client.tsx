@@ -81,6 +81,7 @@ export default function RulesExtractionClient({ mailboxes }: Props) {
     totalFetched: number
     afterAutoFilter: number
     rejectionStats?: { rejectedNoReplyFromUs: number; rejectedTooFewMessages: number; rejectedAutoFilter: number }
+    diagnostics?: Record<string, unknown>
   } | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [copied, setCopied] = useState(false)
@@ -139,6 +140,7 @@ export default function RulesExtractionClient({ mailboxes }: Props) {
         totalFetched?: number
         afterAutoFilter?: number
         rejectionStats?: { rejectedNoReplyFromUs: number; rejectedTooFewMessages: number; rejectedAutoFilter: number }
+        diagnostics?: Record<string, unknown>
         error?: string
       }
       if (!res.ok) {
@@ -151,6 +153,7 @@ export default function RulesExtractionClient({ mailboxes }: Props) {
         totalFetched: data.totalFetched ?? 0,
         afterAutoFilter: data.afterAutoFilter ?? 0,
         rejectionStats: data.rejectionStats,
+        diagnostics: data.diagnostics,
       })
       setPhase('validation')
     } catch {
@@ -377,6 +380,18 @@ export default function RulesExtractionClient({ mailboxes }: Props) {
             </tbody>
           </table>
         </div>
+
+        {/* Diagnostics debug */}
+        {fetchStats?.diagnostics && (
+          <div style={{ marginBottom: 80, border: '1px solid var(--border)', borderRadius: 'var(--r-sm)', overflow: 'hidden' }}>
+            <div style={{ padding: '8px 14px', background: 'var(--surface-sunken)', borderBottom: '1px solid var(--border)', fontSize: 11, fontWeight: 550, color: 'var(--ink-500)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+              Diagnostics
+            </div>
+            <pre style={{ margin: 0, padding: '14px 16px', fontSize: 11.5, lineHeight: 1.6, color: 'var(--ink-700)', background: 'var(--surface)', overflowX: 'auto' }}>
+              {JSON.stringify(fetchStats.diagnostics, null, 2)}
+            </pre>
+          </div>
+        )}
 
         {/* Sticky footer */}
         <div style={{

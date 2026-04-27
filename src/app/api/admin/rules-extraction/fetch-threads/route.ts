@@ -149,5 +149,24 @@ export async function POST(req: NextRequest) {
     rejectedAutoFilter: totalFetched - filtered.length,
   }
 
-  return NextResponse.json({ threads, totalFetched, afterAutoFilter, rejectionStats })
+  const rejectedThreads = allThreads.filter(t => !(t.messageCount >= 2 && t.hasReplyFromUs))
+  const shuffled = rejectedThreads.map(t => t.subject).sort(() => Math.random() - 0.5)
+  const sampleRejectedSubjects = shuffled.slice(0, 10)
+
+  const now = new Date()
+  const diagnostics = {
+    totalMessagesFromGraph: totalFetched,
+    uniqueThreads: threadMap.size,
+    rejectionBreakdown: {
+      autoFilteredSenders: totalFetched - filtered.length,
+      noReplyFromUs: rejectedNoReplyFromUs,
+      tooFewMessages: allThreads.filter(t => t.hasReplyFromUs && t.messageCount < 3).length,
+    },
+    searchKeywordsUsed: SUBJECT_KEYWORDS,
+    dateRangeStart: since12m.toISOString(),
+    dateRangeEnd: now.toISOString(),
+    sampleRejectedSubjects,
+  }
+
+  return NextResponse.json({ threads, totalFetched, afterAutoFilter, rejectionStats, diagnostics })
 }
