@@ -37,7 +37,6 @@ export async function GET(_req: NextRequest) {
       displayName: true,
       provider: true,
       actif: true,
-      ragFolderName: true,
       subscriptionId: true,
       subscriptionExpiry: true,
       createdAt: true,

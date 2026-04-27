@@ -9,7 +9,6 @@ interface Mailbox {
   displayName: string | null
   provider: string
   actif: boolean
-  ragFolderName: string | null
   subscriptionId: string | null
   subscriptionExpiry: string | null
   createdAt: string
@@ -19,7 +18,6 @@ function formatDate(s: string | null) {
   if (!s) return '—'
   return new Intl.DateTimeFormat('fr-FR', { day: 'numeric', month: 'short', year: 'numeric' }).format(new Date(s))
 }
-
 
 const SUCCESS_MESSAGES: Record<string, string> = {
   gmail_connected: 'Boîte Gmail connectée avec succès.',
@@ -44,10 +42,6 @@ export default function MailboxesClient() {
   const [loading, setLoading] = useState(true)
   const [toggling, setToggling] = useState<string | null>(null)
   const [subscribing, setSubscribing] = useState<string | null>(null)
-  const [folderEdit, setFolderEdit] = useState<Record<string, string>>({})
-  const [savingFolder, setSavingFolder] = useState<string | null>(null)
-  const [settingUp, setSettingUp] = useState<string | null>(null)
-  const [setupMsg, setSetupMsg] = useState<Record<string, string>>({})
   const searchParams = useSearchParams()
 
   const successKey = searchParams.get('success') ?? ''
@@ -60,9 +54,6 @@ export default function MailboxesClient() {
       .then(r => r.json())
       .then((data: Mailbox[]) => {
         setMailboxes(data)
-        const init: Record<string, string> = {}
-        for (const m of data) init[m.id] = m.ragFolderName ?? ''
-        setFolderEdit(init)
         setLoading(false)
       })
       .catch(() => setLoading(false))
@@ -82,45 +73,6 @@ export default function MailboxesClient() {
     setToggling(null)
   }
 
-  async function handleFolderSave(id: string) {
-    setSavingFolder(id)
-    const value = folderEdit[id]?.trim() || null
-    const res = await fetch(`/api/mailboxes/${id}`, {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ ragFolderName: value }),
-    })
-    if (res.ok) {
-      const updated = await res.json() as { id: string; ragFolderName: string | null }
-      setMailboxes(prev => prev.map(m => m.id === id ? { ...m, ragFolderName: updated.ragFolderName } : m))
-    }
-    setSavingFolder(null)
-  }
-
-  async function handleSetup(id: string) {
-    setSettingUp(id)
-    setSetupMsg(prev => ({ ...prev, [id]: '' }))
-    const folderName = folderEdit[id]?.trim() || 'Événements'
-    const res = await fetch(`/api/mailboxes/${id}/setup-folder`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ folderName }),
-    })
-    if (res.ok) {
-      const data = await res.json() as { folderName: string; folderCreated: boolean; ruleCreated: boolean }
-      setMailboxes(prev => prev.map(m => m.id === id ? { ...m, ragFolderName: data.folderName } : m))
-      setFolderEdit(prev => ({ ...prev, [id]: data.folderName }))
-      const parts = []
-      parts.push(data.folderCreated ? 'Dossier créé' : 'Dossier existant trouvé')
-      parts.push(data.ruleCreated ? '· règle activée' : '· règle non créée')
-      setSetupMsg(prev => ({ ...prev, [id]: parts.join(' ') }))
-    } else {
-      const err = await res.json() as { error?: string }
-      setSetupMsg(prev => ({ ...prev, [id]: err.error ?? 'Erreur' }))
-    }
-    setSettingUp(null)
-  }
-
   async function handleSubscribe(id: string) {
     setSubscribing(id)
     const res = await fetch(`/api/mailboxes/${id}/subscribe`, { method: 'POST' })
@@ -132,7 +84,6 @@ export default function MailboxesClient() {
     }
     setSubscribing(null)
   }
-
 
   if (loading) {
     return <div style={{ padding: '48px 24px', color: 'var(--ink-400)', fontSize: 13 }}>Chargement…</div>
@@ -183,52 +134,6 @@ export default function MailboxesClient() {
                 Ajoutée le {formatDate(m.createdAt)}
               </div>
             </div>
-
-            {m.provider === 'MICROSOFT' && (
-              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 4, flexShrink: 0 }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                  <input
-                    value={folderEdit[m.id] ?? ''}
-                    onChange={e => setFolderEdit(prev => ({ ...prev, [m.id]: e.target.value }))}
-                    placeholder="Dossier Outlook (ex: Événements)"
-                    style={{
-                      fontSize: 12, padding: '4px 8px', borderRadius: 'var(--r-sm)',
-                      border: '1px solid var(--border)', background: 'var(--surface)',
-                      color: 'var(--ink-700)', width: 180,
-                    }}
-                    onKeyDown={e => { if (e.key === 'Enter') void handleFolderSave(m.id) }}
-                  />
-                  <button
-                    onClick={() => void handleFolderSave(m.id)}
-                    disabled={savingFolder === m.id}
-                    style={{
-                      padding: '4px 10px', fontSize: 12, fontWeight: 500,
-                      borderRadius: 'var(--r-sm)', border: '1px solid var(--border)',
-                      background: 'var(--surface-sunken)', color: 'var(--ink-600)',
-                      cursor: savingFolder === m.id ? 'not-allowed' : 'pointer', flexShrink: 0,
-                    }}
-                  >
-                    {savingFolder === m.id ? '…' : 'OK'}
-                  </button>
-                  <button
-                    onClick={() => void handleSetup(m.id)}
-                    disabled={settingUp === m.id}
-                    style={{
-                      padding: '4px 10px', fontSize: 12, fontWeight: 500,
-                      borderRadius: 'var(--r-sm)', border: '1px solid #BFDBFE',
-                      background: '#EFF6FF', color: '#1D4ED8',
-                      cursor: settingUp === m.id ? 'not-allowed' : 'pointer', flexShrink: 0,
-                      whiteSpace: 'nowrap',
-                    }}
-                  >
-                    {settingUp === m.id ? '…' : 'Créer dans Outlook'}
-                  </button>
-                </div>
-                {setupMsg[m.id] && (
-                  <div style={{ fontSize: 11, color: 'var(--ink-500)' }}>{setupMsg[m.id]}</div>
-                )}
-              </div>
-            )}
 
             {m.provider === 'MICROSOFT' && !m.subscriptionId && (
               <button

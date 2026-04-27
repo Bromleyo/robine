@@ -85,7 +85,6 @@ model Restaurant {
   mailboxes            OutlookMailbox[]
   rejectedEmails       RejectedEmail[]
   reglesIA             RegleIA?
-  conversationExamples ConversationExample[]
 
   @@map("restaurants")
 }
@@ -155,7 +154,6 @@ model OutlookMailbox {
   msRefreshToken String?   @db.Text
   msTokenExpiry  DateTime?
   lastPollAt     DateTime?
-  ragFolderName  String?
   actif          Boolean   @default(true)
   createdAt      DateTime  @default(now())
   updatedAt      DateTime  @updatedAt
@@ -267,7 +265,6 @@ model Thread {
 
   demande              Demande              @relation(fields: [demandeId], references: [id], onDelete: Cascade)
   messages             Message[]
-  conversationExamples ConversationExample[]
 
   @@index([demandeId])
   @@index([messageIdRoot])
@@ -450,49 +447,6 @@ model PrintJob {
 
   @@index([restaurantId, status])
   @@map("print_jobs")
-}
-
-model ConversationExample {
-  id                  String         @id @default(cuid())
-  restaurantId        String
-  graphConversationId String
-  threadId            String?
-  status              String         @default("PENDING")
-  typeEvenement       TypeEvenement?
-  subject             String
-  contactEmail        String
-  contactName         String?
-  startDate           DateTime
-  messageCount        Int
-  notes               String?        @db.Text
-  approvedAt          DateTime?
-  rejectedAt          DateTime?
-  createdAt           DateTime       @default(now())
-  updatedAt           DateTime       @updatedAt
-
-  restaurant Restaurant                  @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
-  thread     Thread?                     @relation(fields: [threadId], references: [id], onDelete: SetNull)
-  messages   ConversationExampleMessage[]
-
-  @@unique([restaurantId, graphConversationId])
-  @@index([restaurantId, status])
-  @@index([restaurantId, typeEvenement, status])
-  @@map("conversation_examples")
-}
-
-model ConversationExampleMessage {
-  id        String           @id @default(cuid())
-  exampleId String
-  direction DirectionMessage
-  fromEmail String
-  fromName  String?
-  bodyText  String           @db.Text
-  sentAt    DateTime?
-
-  example ConversationExample @relation(fields: [exampleId], references: [id], onDelete: Cascade)
-
-  @@index([exampleId])
-  @@map("conversation_example_messages")
 }
 
 model WebhookEvent {
