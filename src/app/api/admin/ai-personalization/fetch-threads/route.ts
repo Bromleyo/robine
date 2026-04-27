@@ -30,6 +30,37 @@ interface MsgRaw {
   body: { contentType: 'html' | 'text'; content: string }
 }
 
+type TaggedMsg = MsgRaw & { _source: 'inbox' | 'sentitems' }
+
+async function fetchFolder(
+  mailboxEmail: string,
+  folder: 'inbox' | 'sentitems',
+  kql: string,
+  token: string,
+): Promise<TaggedMsg[]> {
+  const selectFields = 'id,conversationId,subject,from,receivedDateTime,body'
+  const searchParam = encodeURIComponent(`"${kql}"`)
+  const baseUrl = `${GRAPH_BASE}/users/${encodeURIComponent(mailboxEmail)}/mailFolders/${folder}/messages?$search=${searchParam}&$select=${selectFields}&$top=100`
+
+  let nextUrl: string | null = baseUrl
+  const messages: TaggedMsg[] = []
+  let pageCount = 0
+
+  while (nextUrl && pageCount < 15) {
+    const res = await fetch(nextUrl, { headers: { Authorization: `Bearer ${token}` } })
+    if (!res.ok) {
+      const text = await res.text()
+      throw new Error(`Graph ${folder} error ${res.status}: ${text}`)
+    }
+    const data = await res.json() as { value: MsgRaw[]; '@odata.nextLink'?: string }
+    for (const m of data.value ?? []) messages.push({ ...m, _source: folder })
+    nextUrl = data['@odata.nextLink'] ?? null
+    pageCount++
+  }
+
+  return messages
+}
+
 export async function POST(req: NextRequest) {
   const session = await auth()
   if (!session?.user?.restaurantId) {
@@ -57,27 +88,33 @@ export async function POST(req: NextRequest) {
 
   const token = await getAppGraphToken()
   const mailboxEmail = mailbox.email
-
   const kql = keywords.map(k => `subject:${k}`).join(' OR ')
-  const selectFields = 'id,conversationId,subject,from,receivedDateTime,body'
-  const searchParam = encodeURIComponent(`"${kql}"`)
-  const baseUrl = `${GRAPH_BASE}/users/${encodeURIComponent(mailboxEmail)}/messages?$search=${searchParam}&$select=${selectFields}&$top=100`
 
-  let nextUrl: string | null = baseUrl
-  const allMessages: MsgRaw[] = []
-  let pageCount = 0
+  let inboxMessages: TaggedMsg[] = []
+  let sentMessages: TaggedMsg[] = []
 
-  while (nextUrl && pageCount < 15) {
-    const res = await fetch(nextUrl, { headers: { Authorization: `Bearer ${token}` } })
-    if (!res.ok) {
-      const text = await res.text()
-      console.error('[ai-personalization/fetch-threads] Graph error', res.status, text)
-      return NextResponse.json({ error: 'Erreur Graph API', detail: text }, { status: 502 })
+  try {
+    ;[inboxMessages, sentMessages] = await Promise.all([
+      fetchFolder(mailboxEmail, 'inbox', kql, token),
+      fetchFolder(mailboxEmail, 'sentitems', kql, token),
+    ])
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err)
+    console.error('[ai-personalization/fetch-threads]', msg)
+    return NextResponse.json({ error: 'Erreur Graph API', detail: msg }, { status: 502 })
+  }
+
+  const inboxMessagesFound = inboxMessages.length
+  const sentItemsMessagesFound = sentMessages.length
+
+  // Merge and deduplicate by message id (sentitems wins to preserve _source)
+  const seenIds = new Set<string>()
+  const allMessages: TaggedMsg[] = []
+  for (const msg of [...sentMessages, ...inboxMessages]) {
+    if (!seenIds.has(msg.id)) {
+      seenIds.add(msg.id)
+      allMessages.push(msg)
     }
-    const data = await res.json() as { value: MsgRaw[]; '@odata.nextLink'?: string }
-    allMessages.push(...(data.value ?? []))
-    nextUrl = data['@odata.nextLink'] ?? null
-    pageCount++
   }
 
   const totalFetched = allMessages.length
@@ -98,8 +135,10 @@ export async function POST(req: NextRequest) {
     firstMessagePreview: string
     messageCount: number
     hasReplyFromUs: boolean
+    _hasInbox: boolean
+    _hasSent: boolean
     _participants: Set<string>
-    _messagesSummary: { from: string; date: string }[]
+    _messagesSummary: { from: string; date: string; source: string }[]
   }
 
   const threadMap = new Map<string, ThreadAcc>()
@@ -109,7 +148,7 @@ export async function POST(req: NextRequest) {
     if (!cid) continue
 
     const fromAddr = msg.from.emailAddress.address.toLowerCase()
-    const isFromMailbox = fromAddr === mailboxEmail.toLowerCase()
+    const isFromUs = msg._source === 'sentitems' || fromAddr === mailboxEmail.toLowerCase()
 
     if (!threadMap.has(cid)) {
       const bodyText = msg.body.contentType === 'html' ? htmlToText(msg.body.content) : msg.body.content
@@ -121,6 +160,8 @@ export async function POST(req: NextRequest) {
         firstMessagePreview: bodyText.slice(0, 250),
         messageCount: 0,
         hasReplyFromUs: false,
+        _hasInbox: false,
+        _hasSent: false,
         _participants: new Set<string>(),
         _messagesSummary: [],
       })
@@ -129,14 +170,16 @@ export async function POST(req: NextRequest) {
     const acc = threadMap.get(cid)!
     acc.messageCount++
     acc._participants.add(msg.from.emailAddress.address)
+    if (msg._source === 'inbox') acc._hasInbox = true
+    if (msg._source === 'sentitems') acc._hasSent = true
     if (acc._messagesSummary.length < 20) {
-      acc._messagesSummary.push({ from: msg.from.emailAddress.address, date: msg.receivedDateTime })
+      acc._messagesSummary.push({ from: msg.from.emailAddress.address, date: msg.receivedDateTime, source: msg._source })
     }
-    if (isFromMailbox) acc.hasReplyFromUs = true
+    if (isFromUs) acc.hasReplyFromUs = true
 
     if (new Date(msg.receivedDateTime) < new Date(acc.firstMessageDate)) {
       acc.firstMessageDate = msg.receivedDateTime
-      if (!isFromMailbox) {
+      if (!isFromUs) {
         acc.senderEmail = msg.from.emailAddress.address
         const bodyText = msg.body.contentType === 'html' ? htmlToText(msg.body.content) : msg.body.content
         acc.firstMessagePreview = bodyText.slice(0, 250)
@@ -148,6 +191,7 @@ export async function POST(req: NextRequest) {
   const allThreads = Array.from(threadMap.values())
   const rejectedNoReplyFromUs = allThreads.filter(t => !t.hasReplyFromUs).length
   const rejectedTooFewMessages = allThreads.filter(t => t.hasReplyFromUs && t.messageCount < 2).length
+  const threadsWithMessagesFromBothFolders = allThreads.filter(t => t._hasInbox && t._hasSent).length
 
   const threads = allThreads
     .filter(t => t.messageCount >= 2 && t.hasReplyFromUs)
@@ -165,7 +209,6 @@ export async function POST(req: NextRequest) {
     .sort(() => Math.random() - 0.5)
     .slice(0, 10)
 
-  // Date range and monthly distribution across all fetched messages
   const allDates = allMessages.map(m => m.receivedDateTime).sort()
   const oldestMessageDate = allDates[0] ?? null
   const newestMessageDate = allDates[allDates.length - 1] ?? null
@@ -177,7 +220,6 @@ export async function POST(req: NextRequest) {
     messagesPerMonth[key] = (messagesPerMonth[key] ?? 0) + 1
   }
 
-  // 3 random no-reply threads with participants + message summary
   const noReplyThreads = allThreads.filter(t => !t.hasReplyFromUs)
   const sampleNoReplyThreads = noReplyThreads
     .sort(() => Math.random() - 0.5)
@@ -193,6 +235,9 @@ export async function POST(req: NextRequest) {
   const now = new Date()
   const diagnostics = {
     graphSearchTotalReturned: totalFetched,
+    inboxMessagesFound,
+    sentItemsMessagesFound,
+    threadsWithMessagesFromBothFolders,
     oldestMessageDate,
     newestMessageDate,
     messagesPerMonth,
