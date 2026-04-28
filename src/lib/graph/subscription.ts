@@ -26,13 +26,17 @@ export async function createMailSubscription(
   return res.json() as Promise<{ id: string; expirationDateTime: string }>
 }
 
-// Uses a delegated (user) access token — resource is /me/... relative to token owner
+// Uses a delegated (user) access token. targetEmail: if set, polls that shared mailbox instead of /me
 export async function createMailSubscriptionDelegated(
   accessToken: string,
   notificationUrl: string,
   clientState: string,
+  targetEmail?: string,
 ): Promise<{ id: string; expirationDateTime: string }> {
   const expirationDateTime = new Date(Date.now() + 3 * 24 * 60 * 60 * 1000).toISOString()
+  const resource = targetEmail
+    ? `users/${targetEmail}/mailFolders/inbox/messages`
+    : 'me/mailFolders/inbox/messages'
 
   const res = await fetch(`${GRAPH_BASE}/subscriptions`, {
     method: 'POST',
@@ -40,7 +44,7 @@ export async function createMailSubscriptionDelegated(
     body: JSON.stringify({
       changeType: 'created',
       notificationUrl,
-      resource: 'me/mailFolders/inbox/messages',
+      resource,
       expirationDateTime,
       clientState,
     }),

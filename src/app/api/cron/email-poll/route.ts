@@ -46,10 +46,12 @@ interface MicrosoftListResponse {
 async function listMicrosoftDelegatedMessages(
   accessToken: string,
   sinceIso: string,
+  targetEmail?: string,
 ): Promise<MicrosoftMailMessage[]> {
   const filter = encodeURIComponent(`receivedDateTime ge ${sinceIso}`)
   const select = 'id,internetMessageId,conversationId,subject,from,toRecipients,ccRecipients,body,receivedDateTime,internetMessageHeaders'
-  const url = `https://graph.microsoft.com/v1.0/me/mailFolders/Inbox/messages?$filter=${filter}&$select=${select}&$top=50`
+  const base = targetEmail ? `users/${targetEmail}` : 'me'
+  const url = `https://graph.microsoft.com/v1.0/${base}/mailFolders/Inbox/messages?$filter=${filter}&$select=${select}&$top=50`
   const res = await fetch(url, { headers: { Authorization: `Bearer ${accessToken}` } })
   if (!res.ok) throw new Error(`Microsoft list failed (${res.status}): ${await res.text()}`)
   const data = await res.json() as MicrosoftListResponse
@@ -95,6 +97,7 @@ export async function GET(req: NextRequest) {
     select: {
       id: true,
       email: true,
+      sharedMailboxEmail: true,
       restaurantId: true,
       provider: true,
       msAccessToken: true,
@@ -149,7 +152,7 @@ export async function GET(req: NextRequest) {
         }
       } else {
         const sinceIso = sinceDate.toISOString().replace(/\.\d+Z$/, 'Z')
-        const messages = await listMicrosoftDelegatedMessages(accessToken, sinceIso)
+        const messages = await listMicrosoftDelegatedMessages(accessToken, sinceIso, mailbox.sharedMailboxEmail ?? undefined)
         for (const msg of messages) {
           const email = msMessageToNormalized(msg)
           await processIncomingEmail(email, mailboxRef)

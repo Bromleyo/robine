@@ -39,6 +39,7 @@ export async function GET(_req: NextRequest) {
       actif: true,
       subscriptionId: true,
       subscriptionExpiry: true,
+      sharedMailboxEmail: true,
       createdAt: true,
       updatedAt: true,
     },

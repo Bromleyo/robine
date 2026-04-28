@@ -169,8 +169,9 @@ model OutlookMailbox {
   subscriptionExpiry DateTime?
   msAccessToken  String?   @db.Text
   msRefreshToken String?   @db.Text
-  msTokenExpiry  DateTime?
-  lastPollAt     DateTime?
+  msTokenExpiry       DateTime?
+  sharedMailboxEmail  String?
+  lastPollAt          DateTime?
   actif          Boolean   @default(true)
   createdAt      DateTime  @default(now())
   updatedAt      DateTime  @updatedAt

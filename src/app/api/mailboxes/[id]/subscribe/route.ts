@@ -31,7 +31,7 @@ export async function POST(
   const { id } = await params
   const mailbox = await prisma.outlookMailbox.findFirst({
     where: { id, restaurantId },
-    select: { id: true, email: true, msAccessToken: true, msRefreshToken: true, msTokenExpiry: true },
+    select: { id: true, email: true, sharedMailboxEmail: true, msAccessToken: true, msRefreshToken: true, msTokenExpiry: true },
   })
   if (!mailbox) return NextResponse.json({ error: 'Boîte introuvable' }, { status: 404 })
   if (!mailbox.msRefreshToken) return NextResponse.json({ error: 'Aucun token délégué — reconnectez la boîte' }, { status: 400 })
@@ -54,7 +54,7 @@ export async function POST(
   const notificationUrl = `${process.env.NEXTAUTH_URL}/api/webhooks/graph`
   const clientState = process.env.MS_GRAPH_WEBHOOK_SECRET ?? ''
 
-  const subscription = await createMailSubscriptionDelegated(accessToken, notificationUrl, clientState)
+  const subscription = await createMailSubscriptionDelegated(accessToken, notificationUrl, clientState, mailbox.sharedMailboxEmail ?? undefined)
 
   await prisma.outlookMailbox.update({
     where: { id },

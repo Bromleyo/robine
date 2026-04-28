@@ -11,7 +11,7 @@ export async function PUT(
   const restaurantId = session.user.restaurantId
 
   const { id } = await params
-  const body = await req.json() as { actif?: boolean }
+  const body = await req.json() as { actif?: boolean; sharedMailboxEmail?: string | null }
 
   const mailbox = await prisma.outlookMailbox.findFirst({
     where: { id, restaurantId },
@@ -23,8 +23,9 @@ export async function PUT(
     where: { id },
     data: {
       ...(body.actif !== undefined && { actif: body.actif }),
+      ...('sharedMailboxEmail' in body && { sharedMailboxEmail: body.sharedMailboxEmail ?? null }),
     },
-    select: { id: true, email: true, actif: true },
+    select: { id: true, email: true, actif: true, sharedMailboxEmail: true },
   })
 
   return NextResponse.json(updated)

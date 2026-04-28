@@ -11,6 +11,7 @@ interface Mailbox {
   actif: boolean
   subscriptionId: string | null
   subscriptionExpiry: string | null
+  sharedMailboxEmail: string | null
   createdAt: string
 }
 
@@ -42,6 +43,8 @@ export default function MailboxesClient() {
   const [loading, setLoading] = useState(true)
   const [toggling, setToggling] = useState<string | null>(null)
   const [subscribing, setSubscribing] = useState<string | null>(null)
+  const [editingShared, setEditingShared] = useState<Record<string, string>>({})
+  const [savingShared, setSavingShared] = useState<string | null>(null)
   const searchParams = useSearchParams()
 
   const successKey = searchParams.get('success') ?? ''
@@ -54,6 +57,9 @@ export default function MailboxesClient() {
       .then(r => r.json())
       .then((data: Mailbox[]) => {
         setMailboxes(data)
+        const initial: Record<string, string> = {}
+        data.forEach((m: Mailbox) => { initial[m.id] = m.sharedMailboxEmail ?? '' })
+        setEditingShared(initial)
         setLoading(false)
       })
       .catch(() => setLoading(false))
@@ -85,6 +91,21 @@ export default function MailboxesClient() {
     setSubscribing(null)
   }
 
+  async function handleSaveShared(id: string) {
+    setSavingShared(id)
+    const value = editingShared[id]?.trim() || null
+    const res = await fetch(`/api/mailboxes/${id}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ sharedMailboxEmail: value }),
+    })
+    if (res.ok) {
+      const updated = await res.json() as { id: string; sharedMailboxEmail: string | null }
+      setMailboxes(prev => prev.map(m => m.id === id ? { ...m, sharedMailboxEmail: updated.sharedMailboxEmail } : m))
+    }
+    setSavingShared(null)
+  }
+
   if (loading) {
     return <div style={{ padding: '48px 24px', color: 'var(--ink-400)', fontSize: 13 }}>Chargement…</div>
   }
@@ -111,62 +132,99 @@ export default function MailboxesClient() {
 
         {mailboxes.map(m => (
           <div key={m.id} style={{
-            display: 'flex', alignItems: 'center', gap: 16,
-            padding: '14px 18px',
             background: 'var(--surface)',
             border: '1px solid var(--border)',
             borderRadius: 'var(--r-md)',
+            overflow: 'hidden',
           }}>
-            <div style={{ flex: 1, minWidth: 0 }}>
-              <div style={{ fontSize: 13.5, fontWeight: 550, color: 'var(--ink-900)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                {m.displayName ?? m.email}
+            <div style={{ display: 'flex', alignItems: 'center', gap: 16, padding: '14px 18px' }}>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ fontSize: 13.5, fontWeight: 550, color: 'var(--ink-900)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                  {m.displayName ?? m.email}
+                </div>
+                {m.displayName && (
+                  <div style={{ fontSize: 12, color: 'var(--ink-500)', marginTop: 1 }}>{m.email}</div>
+                )}
               </div>
-              {m.displayName && (
-                <div style={{ fontSize: 12, color: 'var(--ink-500)', marginTop: 1 }}>{m.email}</div>
+
+              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 2 }}>
+                <div style={{ fontSize: 11.5, color: 'var(--ink-400)' }}>
+                  {m.provider === 'GMAIL' ? '📧 Gmail · poll 5 min' : m.provider === 'MICROSOFT' && !m.subscriptionId ? '📧 Outlook · poll 5 min' : m.subscriptionId ? `Outlook Webhook · exp. ${formatDate(m.subscriptionExpiry)}` : 'Outlook · pas de sync'}
+                </div>
+                <div style={{ fontSize: 11, color: 'var(--ink-400)' }}>
+                  Ajoutée le {formatDate(m.createdAt)}
+                </div>
+              </div>
+
+              {m.provider === 'MICROSOFT' && !m.subscriptionId && (
+                <button
+                  onClick={() => void handleSubscribe(m.id)}
+                  disabled={subscribing === m.id}
+                  style={{
+                    padding: '5px 12px', fontSize: 12.5, fontWeight: 500,
+                    borderRadius: 'var(--r-sm)', cursor: subscribing === m.id ? 'not-allowed' : 'pointer',
+                    border: '1px solid var(--border)',
+                    background: 'var(--surface-sunken)',
+                    color: 'var(--ink-600)',
+                    flexShrink: 0,
+                  }}
+                >
+                  {subscribing === m.id ? '…' : 'Activer Webhook'}
+                </button>
               )}
-            </div>
 
-            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 2 }}>
-              <div style={{ fontSize: 11.5, color: 'var(--ink-400)' }}>
-                {m.provider === 'GMAIL' ? '📧 Gmail · poll 5 min' : m.provider === 'MICROSOFT' && !m.subscriptionId ? '📧 Outlook · poll 5 min' : m.subscriptionId ? `Outlook Webhook · exp. ${formatDate(m.subscriptionExpiry)}` : 'Outlook · pas de sync'}
-              </div>
-              <div style={{ fontSize: 11, color: 'var(--ink-400)' }}>
-                Ajoutée le {formatDate(m.createdAt)}
-              </div>
-            </div>
-
-            {m.provider === 'MICROSOFT' && !m.subscriptionId && (
               <button
-                onClick={() => void handleSubscribe(m.id)}
-                disabled={subscribing === m.id}
+                onClick={() => void handleToggle(m.id, m.actif)}
+                disabled={toggling === m.id}
                 style={{
                   padding: '5px 12px', fontSize: 12.5, fontWeight: 500,
-                  borderRadius: 'var(--r-sm)', cursor: subscribing === m.id ? 'not-allowed' : 'pointer',
-                  border: '1px solid var(--border)',
-                  background: 'var(--surface-sunken)',
-                  color: 'var(--ink-600)',
+                  borderRadius: 'var(--r-sm)', cursor: toggling === m.id ? 'not-allowed' : 'pointer',
+                  border: '1px solid',
+                  borderColor: m.actif ? '#BBF7D0' : 'var(--border)',
+                  background: m.actif ? '#F0FDF4' : 'var(--surface-sunken)',
+                  color: m.actif ? '#166534' : 'var(--ink-500)',
                   flexShrink: 0,
                 }}
               >
-                {subscribing === m.id ? '…' : 'Activer Webhook'}
+                {toggling === m.id ? '…' : m.actif ? 'Active' : 'Inactive'}
               </button>
-            )}
+            </div>
 
-            <button
-              onClick={() => void handleToggle(m.id, m.actif)}
-              disabled={toggling === m.id}
-              style={{
-                padding: '5px 12px', fontSize: 12.5, fontWeight: 500,
-                borderRadius: 'var(--r-sm)', cursor: toggling === m.id ? 'not-allowed' : 'pointer',
-                border: '1px solid',
-                borderColor: m.actif ? '#BBF7D0' : 'var(--border)',
-                background: m.actif ? '#F0FDF4' : 'var(--surface-sunken)',
-                color: m.actif ? '#166534' : 'var(--ink-500)',
-                flexShrink: 0,
-              }}
-            >
-              {toggling === m.id ? '…' : m.actif ? 'Active' : 'Inactive'}
-            </button>
+            {m.provider === 'MICROSOFT' && (
+              <div style={{
+                display: 'flex', alignItems: 'center', gap: 8,
+                padding: '8px 18px 12px',
+                borderTop: '1px solid var(--border)',
+                background: 'var(--surface-sunken)',
+              }}>
+                <span style={{ fontSize: 12, color: 'var(--ink-500)', flexShrink: 0 }}>Boite partagée :</span>
+                <input
+                  type="email"
+                  placeholder="event@le-robin.fr (optionnel)"
+                  value={editingShared[m.id] ?? ''}
+                  onChange={e => setEditingShared(prev => ({ ...prev, [m.id]: e.target.value }))}
+                  style={{
+                    flex: 1, fontSize: 12, padding: '4px 8px',
+                    border: '1px solid var(--border)', borderRadius: 'var(--r-sm)',
+                    background: 'var(--surface)', color: 'var(--ink-800)',
+                    outline: 'none',
+                  }}
+                />
+                <button
+                  onClick={() => void handleSaveShared(m.id)}
+                  disabled={savingShared === m.id}
+                  style={{
+                    padding: '4px 12px', fontSize: 12, fontWeight: 500,
+                    borderRadius: 'var(--r-sm)', cursor: savingShared === m.id ? 'not-allowed' : 'pointer',
+                    border: '1px solid var(--border)',
+                    background: 'var(--surface)', color: 'var(--ink-600)',
+                    flexShrink: 0,
+                  }}
+                >
+                  {savingShared === m.id ? '…' : 'Enregistrer'}
+                </button>
+              </div>
+            )}
           </div>
         ))}
       </div>
