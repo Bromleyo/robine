@@ -51,7 +51,10 @@ export async function POST(
     })
   }
 
-  const notificationUrl = `${process.env.NEXTAUTH_URL}/api/webhooks/graph`
+  const bypassSecret = process.env.VERCEL_AUTOMATION_BYPASS_SECRET
+  const notificationUrl = bypassSecret
+    ? `${process.env.NEXTAUTH_URL}/api/webhooks/graph?x-vercel-protection-bypass=${bypassSecret}`
+    : `${process.env.NEXTAUTH_URL}/api/webhooks/graph`
   const clientState = process.env.MS_GRAPH_WEBHOOK_SECRET ?? ''
 
   const subscription = await createMailSubscriptionDelegated(accessToken, notificationUrl, clientState, mailbox.sharedMailboxEmail ?? undefined)
