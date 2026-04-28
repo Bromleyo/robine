@@ -45,6 +45,7 @@ export default function MailboxesClient() {
   const [subscribing, setSubscribing] = useState<string | null>(null)
   const [editingShared, setEditingShared] = useState<Record<string, string>>({})
   const [savingShared, setSavingShared] = useState<string | null>(null)
+  const [subscribeError, setSubscribeError] = useState<string | null>(null)
   const searchParams = useSearchParams()
 
   const successKey = searchParams.get('success') ?? ''
@@ -81,12 +82,20 @@ export default function MailboxesClient() {
 
   async function handleSubscribe(id: string) {
     setSubscribing(id)
-    const res = await fetch(`/api/mailboxes/${id}/subscribe`, { method: 'POST' })
-    if (res.ok) {
-      const data = await res.json() as { subscriptionId: string; expiry: string }
-      setMailboxes(prev => prev.map(m => m.id === id
-        ? { ...m, subscriptionId: data.subscriptionId, subscriptionExpiry: data.expiry, actif: true }
-        : m))
+    setSubscribeError(null)
+    try {
+      const res = await fetch(`/api/mailboxes/${id}/subscribe`, { method: 'POST' })
+      if (res.ok) {
+        const data = await res.json() as { subscriptionId: string; expiry: string }
+        setMailboxes(prev => prev.map(m => m.id === id
+          ? { ...m, subscriptionId: data.subscriptionId, subscriptionExpiry: data.expiry, actif: true }
+          : m))
+      } else {
+        const err = await res.json().catch(() => ({ error: `Erreur HTTP ${res.status}` })) as { error?: string }
+        setSubscribeError(err.error ?? `Erreur HTTP ${res.status}`)
+      }
+    } catch (e) {
+      setSubscribeError(e instanceof Error ? e.message : 'Erreur réseau')
     }
     setSubscribing(null)
   }
@@ -120,6 +129,11 @@ export default function MailboxesClient() {
       {errorMsg && (
         <div style={{ marginBottom: 16, padding: '10px 14px', borderRadius: 6, background: '#FEF2F2', border: '1px solid #FECACA', color: '#991B1B', fontSize: 13 }}>
           {errorMsg}
+        </div>
+      )}
+      {subscribeError && (
+        <div style={{ marginBottom: 16, padding: '10px 14px', borderRadius: 6, background: '#FEF2F2', border: '1px solid #FECACA', color: '#991B1B', fontSize: 13 }}>
+          Webhook : {subscribeError}
         </div>
       )}
 
