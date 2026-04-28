@@ -29,6 +29,10 @@ type MenuJson = {
   id: string; nom: string; description?: string | null
   prixCents: number; regimesSupportes: string[]
   minConvives?: number | null; maxConvives?: number | null
+  serviceType: string
+  choixUniqueDispo: boolean; choixUniqueMinPax: number | null
+  choixMultipleDispo: boolean; choixMultipleMinPax: number | null
+  pdfUrl: string | null
 }
 type TemplateJson = {
   id: string; nom: string; objectif: string; bodyTemplate: string
@@ -59,14 +63,20 @@ function formatDateTime(s: string | null | undefined) {
 function formatDate(s: string) {
   return new Intl.DateTimeFormat('fr-FR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' }).format(new Date(s))
 }
-function matchScore(menu: MenuJson, demande: DemandeJson): number {
+function matchScore(menu: MenuJson, demande: DemandeJson): number | null {
+  if (demande.nbInvites) {
+    const seuilMin = Math.min(
+      menu.choixUniqueDispo ? (menu.choixUniqueMinPax ?? 0) : Infinity,
+      menu.choixMultipleDispo ? (menu.choixMultipleMinPax ?? 0) : Infinity,
+    )
+    if (seuilMin > 0 && demande.nbInvites < seuilMin) return null
+  }
   let score = 100
   if (demande.budgetIndicatifCents) {
     const over = menu.prixCents - demande.budgetIndicatifCents
     if (over > 0) score -= Math.min(35, Math.floor(over / 400))
   }
   if (demande.nbInvites) {
-    if (menu.minConvives && demande.nbInvites < menu.minConvives) score -= 25
     if (menu.maxConvives && demande.nbInvites > menu.maxConvives) score -= 30
   }
   if (demande.contraintesAlimentaires.length > 0) {
@@ -108,7 +118,10 @@ export default function DemandeFocusModal({ demandeId, onClose }: Props) {
 
   const allMessages = data?.demande.threads.flatMap(t => t.messages) ?? []
   const menusScored = data
-    ? [...data.menus.map(m => ({ ...m, match: matchScore(m, data.demande) }))].sort((a, b) => b.match - a.match)
+    ? data.menus
+        .map(m => ({ ...m, match: matchScore(m, data.demande) }))
+        .filter((m): m is typeof m & { match: number } => m.match !== null)
+        .sort((a, b) => b.match - a.match)
     : []
 
   return (

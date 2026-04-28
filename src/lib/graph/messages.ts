@@ -47,10 +47,13 @@ const SELECT_FIELDS = [
   'receivedDateTime', 'internetMessageHeaders',
 ].join(',')
 
+const MAX_ATTACHMENT_BYTES = 30 * 1024 * 1024
+
 export async function sendGraphReply(
   mailboxEmail: string,
   graphMessageId: string,
   htmlBody: string,
+  attachments?: { name: string; url: string }[],
 ): Promise<string> {
   const token = await getAppGraphToken()
   const base = `${GRAPH_BASE}/users/${encodeURIComponent(mailboxEmail)}/messages`
@@ -69,6 +72,36 @@ export async function sendGraphReply(
     body: JSON.stringify({ body: { contentType: 'html', content: htmlBody } }),
   })
   if (!patchRes.ok) throw new Error(`patch draft failed (${patchRes.status}): ${await patchRes.text()}`)
+
+  if (attachments && attachments.length > 0) {
+    const fetched: { name: string; bytes: ArrayBuffer }[] = []
+    for (const att of attachments) {
+      try {
+        const r = await fetch(att.url)
+        if (!r.ok) { console.warn(`[sendGraphReply] skip attachment ${att.name}: fetch ${r.status}`); continue }
+        fetched.push({ name: att.name, bytes: await r.arrayBuffer() })
+      } catch (err) {
+        console.warn(`[sendGraphReply] skip attachment ${att.name}:`, err)
+      }
+    }
+    const totalBytes = fetched.reduce((s, f) => s + f.bytes.byteLength, 0)
+    if (totalBytes > MAX_ATTACHMENT_BYTES) throw new Error(`Attachments total size ${totalBytes} exceeds 30 MB limit`)
+
+    for (const f of fetched) {
+      const contentBytes = Buffer.from(f.bytes).toString('base64')
+      const attRes = await fetch(`${base}/${draft.id}/attachments`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          '@odata.type': '#microsoft.graph.fileAttachment',
+          name: f.name,
+          contentType: 'application/pdf',
+          contentBytes,
+        }),
+      })
+      if (!attRes.ok) console.warn(`[sendGraphReply] attachment upload failed for ${f.name}: ${attRes.status}`)
+    }
+  }
 
   const sendRes = await fetch(`${base}/${draft.id}/send`, {
     method: 'POST',

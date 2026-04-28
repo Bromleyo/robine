@@ -6,6 +6,12 @@ datasource db {
   provider = "postgresql"
 }
 
+enum ServiceType {
+  ASSIS
+  BUFFET
+  COCKTAIL
+}
+
 enum RoleUtilisateur {
   ADMIN
   RESPONSABLE
@@ -326,6 +332,11 @@ model Menu {
   minConvives      Int?
   maxConvives      Int?
   pdfUrl           String?
+  serviceType      ServiceType @default(ASSIS)
+  choixUniqueDispo    Boolean  @default(true)
+  choixUniqueMinPax   Int?
+  choixMultipleDispo  Boolean  @default(false)
+  choixMultipleMinPax Int?
   actif            Boolean  @default(true)
   ordre            Int      @default(0)
   createdAt        DateTime @default(now())

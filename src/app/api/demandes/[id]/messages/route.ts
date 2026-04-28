@@ -13,7 +13,7 @@ export async function POST(
   }
 
   const { id } = await params
-  const { body: replyText } = await req.json() as { body: string }
+  const { body: replyText, attachments } = await req.json() as { body: string; attachments?: { name: string; url: string }[] }
   if (!replyText?.trim()) return NextResponse.json({ error: 'Body required' }, { status: 400 })
 
   const demande = await prisma.demande.findFirst({
@@ -58,7 +58,7 @@ export async function POST(
     .map(p => `<p>${escHtml(p).replace(/\n/g, '<br/>')}</p>`)
     .join('')
 
-  const internetMessageId = await sendGraphReply(mailbox.email, lastIn.microsoftGraphId, htmlBody)
+  const internetMessageId = await sendGraphReply(mailbox.email, lastIn.microsoftGraphId, htmlBody, attachments)
 
   const now = new Date()
   await prisma.message.create({

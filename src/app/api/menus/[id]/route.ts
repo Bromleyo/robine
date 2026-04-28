@@ -19,6 +19,23 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   if (body.minConvives !== undefined) data.minConvives = body.minConvives ? Number(body.minConvives) : null
   if (body.maxConvives !== undefined) data.maxConvives = body.maxConvives ? Number(body.maxConvives) : null
   if (body.actif !== undefined) data.actif = Boolean(body.actif)
+  if (body.serviceType !== undefined) data.serviceType = body.serviceType
+  if (body.choixUniqueDispo !== undefined) data.choixUniqueDispo = Boolean(body.choixUniqueDispo)
+  if (body.choixUniqueMinPax !== undefined) data.choixUniqueMinPax = body.choixUniqueMinPax ? Number(body.choixUniqueMinPax) : null
+  if (body.choixMultipleDispo !== undefined) data.choixMultipleDispo = Boolean(body.choixMultipleDispo)
+  if (body.choixMultipleMinPax !== undefined) data.choixMultipleMinPax = body.choixMultipleMinPax ? Number(body.choixMultipleMinPax) : null
+
+  const choixUniqueDispo = data.choixUniqueDispo as boolean | undefined
+  const choixMultipleDispo = data.choixMultipleDispo as boolean | undefined
+  if (choixUniqueDispo === false && choixMultipleDispo === false) {
+    return NextResponse.json({ error: 'Au moins une option de choix doit être disponible' }, { status: 400 })
+  }
+  if (choixUniqueDispo && data.choixUniqueMinPax !== undefined && Number(data.choixUniqueMinPax) < 1) {
+    return NextResponse.json({ error: 'choixUniqueMinPax doit être > 0' }, { status: 400 })
+  }
+  if (choixMultipleDispo && data.choixMultipleMinPax !== undefined && Number(data.choixMultipleMinPax) < 1) {
+    return NextResponse.json({ error: 'choixMultipleMinPax doit être > 0' }, { status: 400 })
+  }
 
   const result = await prisma.menu.updateMany({
     where: { id, restaurantId: session.user.restaurantId },

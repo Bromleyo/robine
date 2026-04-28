@@ -34,9 +34,13 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
 
   if (!demande) return NextResponse.json({ error: 'Not found' }, { status: 404 })
 
-  const [regleIA, aiPersonalization] = await Promise.all([
+  const [regleIA, aiPersonalization, activeMenus] = await Promise.all([
     prisma.regleIA.findUnique({ where: { restaurantId: session.user.restaurantId }, select: { id: true } }),
     prisma.aIPersonalization.findUnique({ where: { restaurantId: session.user.restaurantId }, select: { rulesMarkdown: true } }),
+    prisma.menu.findMany({
+      where: { restaurantId: session.user.restaurantId, actif: true },
+      select: { id: true, nom: true, pdfUrl: true, choixUniqueDispo: true, choixUniqueMinPax: true, choixMultipleDispo: true, choixMultipleMinPax: true },
+    }),
   ])
 
   const restaurantId = session.user.restaurantId
@@ -99,5 +103,18 @@ Réponds UNIQUEMENT avec le corps du mail, sans objet ni balises HTML.${aiPerson
   const first = message.content[0]
   const draft = first?.type === 'text' ? first.text.trim() : ''
 
-  return NextResponse.json({ draft })
+  const nbInvites = demande.nbInvites
+  const attachmentSuggestions = activeMenus
+    .filter(m => {
+      if (!m.pdfUrl) return false
+      if (!nbInvites) return true
+      const seuilMin = Math.min(
+        m.choixUniqueDispo ? (m.choixUniqueMinPax ?? 0) : Infinity,
+        m.choixMultipleDispo ? (m.choixMultipleMinPax ?? 0) : Infinity,
+      )
+      return seuilMin === 0 || nbInvites >= seuilMin
+    })
+    .map(m => ({ name: `${m.nom}.pdf`, url: m.pdfUrl as string }))
+
+  return NextResponse.json({ draft, attachmentSuggestions })
 }

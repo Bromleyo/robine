@@ -20,8 +20,26 @@ export async function POST(req: NextRequest) {
   const forbidden = requireRole(session.user.role, 'RESPONSABLE')
   if (forbidden) return forbidden
 
-  const body = await req.json() as { nom?: string; prixCents?: number; description?: string; minConvives?: number; maxConvives?: number }
+  const body = await req.json() as {
+    nom?: string; prixCents?: number; description?: string
+    minConvives?: number; maxConvives?: number
+    serviceType?: string
+    choixUniqueDispo?: boolean; choixUniqueMinPax?: number
+    choixMultipleDispo?: boolean; choixMultipleMinPax?: number
+  }
   if (!body.nom || !body.prixCents) return NextResponse.json({ error: 'nom et prixCents requis' }, { status: 400 })
+
+  const choixUniqueDispo = body.choixUniqueDispo ?? true
+  const choixMultipleDispo = body.choixMultipleDispo ?? false
+  if (!choixUniqueDispo && !choixMultipleDispo) {
+    return NextResponse.json({ error: 'Au moins une option de choix doit être disponible' }, { status: 400 })
+  }
+  if (choixUniqueDispo && body.choixUniqueMinPax !== undefined && Number(body.choixUniqueMinPax) < 1) {
+    return NextResponse.json({ error: 'choixUniqueMinPax doit être > 0' }, { status: 400 })
+  }
+  if (choixMultipleDispo && body.choixMultipleMinPax !== undefined && Number(body.choixMultipleMinPax) < 1) {
+    return NextResponse.json({ error: 'choixMultipleMinPax doit être > 0' }, { status: 400 })
+  }
 
   const menu = await prisma.menu.create({
     data: {
@@ -31,6 +49,11 @@ export async function POST(req: NextRequest) {
       description: body.description?.trim() || null,
       minConvives: body.minConvives ? Number(body.minConvives) : null,
       maxConvives: body.maxConvives ? Number(body.maxConvives) : null,
+      serviceType: (body.serviceType as 'ASSIS' | 'BUFFET' | 'COCKTAIL') ?? 'ASSIS',
+      choixUniqueDispo,
+      choixUniqueMinPax: body.choixUniqueMinPax ? Number(body.choixUniqueMinPax) : null,
+      choixMultipleDispo,
+      choixMultipleMinPax: body.choixMultipleMinPax ? Number(body.choixMultipleMinPax) : null,
     },
   })
   return NextResponse.json(menu, { status: 201 })
