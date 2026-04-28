@@ -37,6 +37,18 @@ export async function POST(req: NextRequest) {
       await tx.membership.create({
         data: { userId, restaurantId: restaurant.id, role: 'ADMIN' },
       })
+      const credits = await tx.aICredits.create({
+        data: { restaurantId: restaurant.id, balance: 1 },
+      })
+      await tx.aICreditTransaction.create({
+        data: {
+          restaurantId: restaurant.id,
+          creditsId: credits.id,
+          type: 'GIFT',
+          amount: 1,
+          description: 'Crédit de bienvenue',
+        },
+      })
       return { restaurant }
     })
 

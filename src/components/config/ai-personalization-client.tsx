@@ -38,6 +38,8 @@ interface AIPersonalizationData {
 interface Props {
   mailboxes: Mailbox[]
   initialPersonalization: AIPersonalizationData | null
+  onBeforeAnalyze?: () => Promise<boolean>
+  onAnalysisComplete?: (personalization: AIPersonalizationData) => void
 }
 
 type WizardStep = 'mailbox' | 'keywords' | 'threads' | 'analyzing'
@@ -79,14 +81,14 @@ function renderMarkdown(md: string): string {
     if (inPara && (blank || h1 || h2 || h3 || li)) { out.push('</p>'); inPara = false }
 
     if (h2) {
-      out.push(`<h2 style="font-size:16px;font-weight:600;margin:24px 0 8px;color:var(--ink-900)">${inline(h2[1])}</h2>`)
+      out.push(`<h2 style="font-size:16px;font-weight:600;margin:24px 0 8px;color:var(--ink-900)">${inline(h2[1] ?? '')}</h2>`)
     } else if (h3) {
-      out.push(`<h3 style="font-size:14px;font-weight:600;margin:16px 0 6px;color:var(--ink-800)">${inline(h3[1])}</h3>`)
+      out.push(`<h3 style="font-size:14px;font-weight:600;margin:16px 0 6px;color:var(--ink-800)">${inline(h3[1] ?? '')}</h3>`)
     } else if (h1) {
-      out.push(`<h1 style="font-size:18px;font-weight:700;margin:0 0 16px;color:var(--ink-900)">${inline(h1[1])}</h1>`)
+      out.push(`<h1 style="font-size:18px;font-weight:700;margin:0 0 16px;color:var(--ink-900)">${inline(h1[1] ?? '')}</h1>`)
     } else if (li) {
       if (!inList) { out.push('<ul style="margin:4px 0 8px;padding-left:20px">'); inList = true }
-      out.push(`<li style="margin:3px 0;line-height:1.5">${inline(li[1])}</li>`)
+      out.push(`<li style="margin:3px 0;line-height:1.5">${inline(li[1] ?? '')}</li>`)
     } else if (!blank) {
       if (!inPara) { out.push('<p style="margin:0 0 10px;line-height:1.6">'); inPara = true }
       else out.push(' ')
@@ -99,7 +101,7 @@ function renderMarkdown(md: string): string {
   return out.join('\n')
 }
 
-export default function AIPersonalizationClient({ mailboxes, initialPersonalization }: Props) {
+export default function AIPersonalizationClient({ mailboxes, initialPersonalization, onBeforeAnalyze, onAnalysisComplete }: Props) {
   const [personalization, setPersonalization] = useState<AIPersonalizationData | null>(initialPersonalization)
   const [step, setStep] = useState<WizardStep>('mailbox')
   const [selectedMailboxId, setSelectedMailboxId] = useState(mailboxes[0]?.id ?? '')
@@ -193,6 +195,10 @@ export default function AIPersonalizationClient({ mailboxes, initialPersonalizat
   const analyze = async () => {
     const selectedIds = threads.filter(t => !deselected.has(t.conversationId)).map(t => t.conversationId)
     if (selectedIds.length === 0) return
+    if (onBeforeAnalyze) {
+      const ok = await onBeforeAnalyze()
+      if (!ok) return
+    }
     setStep('analyzing')
     setError(null)
     try {
@@ -203,7 +209,10 @@ export default function AIPersonalizationClient({ mailboxes, initialPersonalizat
       })
       const data = await res.json() as { personalization?: AIPersonalizationData; error?: string }
       if (!res.ok) { setError(data.error ?? "Erreur lors de l'analyse"); setStep('threads'); return }
-      if (data.personalization) setPersonalization(data.personalization)
+      if (data.personalization) {
+        setPersonalization(data.personalization)
+        onAnalysisComplete?.(data.personalization)
+      }
     } catch { setError('Erreur réseau'); setStep('threads') }
   }
 

@@ -4,6 +4,7 @@ import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import Image from 'next/image'
 import Icon from '@/components/ui/icon'
+import CreditBadge from '@/components/credits/credit-badge'
 
 const NAV = [
   {
@@ -24,8 +25,7 @@ const NAV = [
       { id: 'templates', href: '/config/templates', label: 'Modèles', icon: 'file' as const },
       { id: 'mailboxes', href: '/config/mailboxes', label: 'Boîtes mail', icon: 'mail' as const },
       { id: 'emails-rejetes', href: '/config/emails-rejetes', label: 'Emails rejetés', icon: 'inbox' as const },
-      { id: 'regles-ia', href: '/config/regles-ia', label: 'Règles IA', icon: 'sparkle' as const },
-      { id: 'ia-personnalisee', href: '/config/ia-personnalisee', label: 'IA personnalisée', icon: 'sparkle' as const },
+      { id: 'configuration-ia', href: '/config/configuration-ia', label: 'Configuration IA', icon: 'sparkle' as const },
       { id: 'imprimantes', href: '/config/imprimantes', label: 'Imprimantes', icon: 'print' as const },
     ],
   },
@@ -115,6 +115,11 @@ export default function Sidebar({ restaurantNom = 'Robin', userName, userInitial
           </div>
         ))}
       </nav>
+
+      {/* Credits */}
+      <div style={{ padding: '8px 0' }}>
+        <CreditBadge />
+      </div>
 
       {/* User */}
       <div style={{

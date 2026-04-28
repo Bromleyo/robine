@@ -60,6 +60,13 @@ enum TypeNotification {
   DEMANDE_URGENTE
 }
 
+enum AICreditTransactionType {
+  GIFT
+  PURCHASE
+  CONSUME
+  REFUND
+}
+
 model Restaurant {
   id                      String    @id @default(cuid())
   slug                    String    @unique
@@ -86,6 +93,9 @@ model Restaurant {
   rejectedEmails       RejectedEmail[]
   reglesIA             RegleIA?
   aiPersonalization    AIPersonalization?
+  aiConfiguration      AIConfiguration?
+  aiCredits            AICredits?
+  aiCreditTransactions AICreditTransaction[]
 
   @@map("restaurants")
 }
@@ -465,6 +475,56 @@ model AIPersonalization {
   mailbox    OutlookMailbox @relation(fields: [mailboxId], references: [id])
 
   @@map("ai_personalizations")
+}
+
+model AICredits {
+  id           String   @id @default(cuid())
+  restaurantId String   @unique
+  balance      Int      @default(0)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  restaurant   Restaurant            @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+  transactions AICreditTransaction[]
+
+  @@map("ai_credits")
+}
+
+model AICreditTransaction {
+  id           String                  @id @default(cuid())
+  restaurantId String
+  creditsId    String
+  type         AICreditTransactionType
+  amount       Int
+  description  String?
+  createdAt    DateTime                @default(now())
+
+  restaurant Restaurant @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+  credits    AICredits  @relation(fields: [creditsId], references: [id], onDelete: Cascade)
+
+  @@index([restaurantId])
+  @@index([creditsId])
+  @@map("ai_credit_transactions")
+}
+
+model AIConfiguration {
+  id                     String   @id @default(cuid())
+  restaurantId           String   @unique
+  supplements            Json     @default("{}")
+  acompte                Json     @default("{}")
+  cancellationConditions String?
+  styleRules             String?
+  styleMetadata          Json?    @default("{}")
+  customRules            String?
+  compiledPrompt         String?
+  setupCompleted         Boolean  @default(false)
+  wizardStep             Int      @default(1)
+  createdAt              DateTime @default(now())
+  updatedAt              DateTime @updatedAt
+
+  restaurant Restaurant @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+
+  @@map("ai_configurations")
 }
 
 model WebhookEvent {
