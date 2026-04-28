@@ -30,7 +30,7 @@ export async function PUT(req: NextRequest) {
   const restaurantId = session.user.restaurantId
   const body = await req.json() as Record<string, unknown>
 
-  const allowedFields = ['supplements', 'acompte', 'cancellationConditions', 'styleRules', 'styleMetadata', 'customRules', 'setupCompleted', 'wizardStep']
+  const allowedFields = ['supplements', 'acompte', 'cancellationConditions', 'styleRules', 'styleMetadata', 'customRules', 'setupCompleted', 'wizardStep', 'seuilsCA', 'margeMarchandise']
   const data: Record<string, unknown> = {}
   for (const field of allowedFields) {
     if (field in body) data[field] = body[field]

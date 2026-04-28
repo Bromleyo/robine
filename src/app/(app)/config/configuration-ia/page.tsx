@@ -24,6 +24,8 @@ export default async function ConfigurationIAPage() {
         supplements: true,
         acompte: true,
         cancellationConditions: true,
+        seuilsCA: true,
+        margeMarchandise: true,
       },
     }),
     prisma.espace.findMany({
@@ -56,6 +58,8 @@ export default async function ConfigurationIAPage() {
         supplements: (rawConfig.supplements ?? {}) as Record<string, unknown>,
         acompte: (rawConfig.acompte ?? {}) as Record<string, unknown>,
         cancellationConditions: rawConfig.cancellationConditions,
+        seuilsCA: (rawConfig.seuilsCA ?? {}) as Record<string, { midiSemaine: number; soirSemaine: number; midiWeekend: number; soirWeekend: number }>,
+        margeMarchandise: rawConfig.margeMarchandise ?? 0.70,
       }
     : null
 

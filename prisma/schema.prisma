@@ -530,6 +530,8 @@ model AIConfiguration {
   compiledPrompt         String?
   setupCompleted         Boolean  @default(false)
   wizardStep             Int      @default(1)
+  seuilsCA               Json     @default("{}")
+  margeMarchandise       Float    @default(0.70)
   createdAt              DateTime @default(now())
   updatedAt              DateTime @updatedAt
 

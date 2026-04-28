@@ -9,6 +9,16 @@ import AIPersonalizationClient from './ai-personalization-client'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
+type CreneauxCA = { midiSemaine: number; soirSemaine: number; midiWeekend: number; soirWeekend: number }
+type SeuilsCA = Record<string, CreneauxCA>
+const EMPTY_CRENEAUX: CreneauxCA = { midiSemaine: 0, soirSemaine: 0, midiWeekend: 0, soirWeekend: 0 }
+const CRENEAUX: { key: keyof CreneauxCA; label: string }[] = [
+  { key: 'midiSemaine', label: 'Midi semaine' },
+  { key: 'soirSemaine', label: 'Soir semaine' },
+  { key: 'midiWeekend', label: 'Midi week-end' },
+  { key: 'soirWeekend', label: 'Soir week-end' },
+]
+
 interface Espace {
   id: string; nom: string; capaciteMin: number; capaciteMax: number; description: string | null; actif: boolean
 }
@@ -22,6 +32,8 @@ interface AIConfigData {
   styleMetadata: Record<string, unknown> | null
   supplements: Record<string, unknown>; acompte: Record<string, unknown>
   cancellationConditions: string | null
+  seuilsCA: SeuilsCA
+  margeMarchandise: number
 }
 interface PersonalizationData {
   id: string; mailboxId: string; mailboxEmail: string; mailboxDisplayName: string | null
@@ -43,6 +55,49 @@ async function putConfig(data: Record<string, unknown>) {
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(data),
   })
+}
+
+// ── CaGrid ────────────────────────────────────────────────────────────────────
+
+function CaGrid({ espaces, value, onChange }: {
+  espaces: Espace[]
+  value: SeuilsCA
+  onChange: (v: SeuilsCA) => void
+}) {
+  const update = (espaceId: string, k: keyof CreneauxCA, raw: string) => {
+    const n = Number(raw) || 0
+    onChange({ ...value, [espaceId]: { ...(value[espaceId] ?? EMPTY_CRENEAUX), [k]: n } })
+  }
+  return (
+    <div>
+      {espaces.map(e => {
+        const s = value[e.id] ?? EMPTY_CRENEAUX
+        return (
+          <div key={e.id} style={{ marginBottom: 20 }}>
+            <div style={{ fontSize: 13.5, fontWeight: 550, color: 'var(--ink-800)', marginBottom: 8 }}>{e.nom}</div>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 10 }}>
+              {CRENEAUX.map(({ key, label }) => (
+                <div key={key}>
+                  <label style={{ fontSize: 11, color: 'var(--ink-500)', display: 'block', marginBottom: 3 }}>{label}</label>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                    <input
+                      type="number"
+                      value={s[key] || ''}
+                      onChange={ev => update(e.id, key, ev.target.value)}
+                      placeholder="0"
+                      min={0}
+                      style={{ ...S.input, width: '100%' }}
+                    />
+                    <span style={{ fontSize: 12, color: 'var(--ink-500)', flexShrink: 0 }}>€</span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )
+      })}
+    </div>
+  )
 }
 
 // ── Root ──────────────────────────────────────────────────────────────────────
@@ -79,6 +134,9 @@ function Wizard({ config, espaces, menus, mailboxes, initialPersonalization, onC
   const [saving, setSaving] = useState(false)
   const [showReanalyze, setShowReanalyze] = useState(false)
 
+  // Step 1 state
+  const [seuilsCA, setSeuilsCA] = useState<SeuilsCA>((config?.seuilsCA ?? {}) as SeuilsCA)
+
   // Step 2 state
   const suppl = (config?.supplements ?? {}) as Record<string, number>
   const acc = (config?.acompte ?? {}) as { actif?: boolean; pourcentage?: number }
@@ -88,6 +146,7 @@ function Wizard({ config, espaces, menus, mailboxes, initialPersonalization, onC
   const [acompteActif, setAcompteActif] = useState(acc.actif ?? false)
   const [acomptePct, setAcomptePct] = useState(acc.pourcentage ?? 30)
   const [conditions, setConditions] = useState(config?.cancellationConditions ?? '')
+  const [margeStr, setMargeStr] = useState(String(Math.round((config?.margeMarchandise ?? 0.70) * 100)))
 
   // Step 4 state
   const [compiledPrompt, setCompiledPrompt] = useState(config?.compiledPrompt ?? null)
@@ -131,7 +190,7 @@ function Wizard({ config, espaces, menus, mailboxes, initialPersonalization, onC
 
   const goToStep2 = async () => {
     setSaving(true)
-    await putConfig({ wizardStep: 2 })
+    await putConfig({ seuilsCA, wizardStep: 2 })
     setSaving(false)
     setCurrentStep(2)
   }
@@ -146,6 +205,7 @@ function Wizard({ config, espaces, menus, mailboxes, initialPersonalization, onC
       },
       acompte: { actif: acompteActif, pourcentage: acomptePct },
       cancellationConditions: conditions || null,
+      margeMarchandise: Number(margeStr) > 0 ? Number(margeStr) / 100 : 0.70,
       wizardStep: 3,
     })
     setSaving(false)
@@ -258,6 +318,18 @@ function Wizard({ config, espaces, menus, mailboxes, initialPersonalization, onC
         <h2 style={S.h2}>Présente-nous tes espaces de réception</h2>
         {banner("Robin utilisera ces informations pour orienter les clients selon la capacité qu'ils recherchent.")}
         <EspacesClient espaces={espaces} />
+
+        {espaces.length > 0 && (
+          <div style={{ marginTop: 32, borderTop: '1px solid var(--hairline)', paddingTop: 28 }}>
+            <h3 style={{ fontSize: 15, fontWeight: 600, margin: '0 0 6px' }}>CA cible par créneau</h3>
+            <p style={{ fontSize: 13, color: 'var(--ink-500)', margin: '0 0 20px', lineHeight: 1.5 }}>
+              Robin utilisera ces valeurs pour calculer automatiquement les frais de privatisation.
+              Laisse à 0 pour ne pas calculer ce créneau.
+            </p>
+            <CaGrid espaces={espaces} value={seuilsCA} onChange={setSeuilsCA} />
+          </div>
+        )}
+
         <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 24 }}>
           <button
             onClick={goToStep2}
@@ -325,8 +397,23 @@ function Wizard({ config, espaces, menus, mailboxes, initialPersonalization, onC
             onChange={e => setConditions(e.target.value)}
             placeholder="Ex : Annulation gratuite jusqu'à 30 jours avant l'événement. Au-delà, l'acompte est conservé."
             rows={3}
-            style={{ ...S.input, resize: 'vertical', fontFamily: 'inherit' }}
+            style={{ ...S.input, resize: 'vertical', fontFamily: 'inherit', marginBottom: 24 }}
           />
+
+          <h3 style={{ fontSize: 15, fontWeight: 600, margin: '0 0 8px' }}>Marge marchandise</h3>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
+            <input
+              type="number"
+              value={margeStr}
+              onChange={e => setMargeStr(e.target.value)}
+              min={0} max={100}
+              style={{ ...S.input, width: 80 }}
+            />
+            <span style={{ fontSize: 13, color: 'var(--ink-600)' }}>%</span>
+          </div>
+          <p style={{ fontSize: 12, color: 'var(--ink-500)', margin: '0 0 0', lineHeight: 1.5 }}>
+            Utilisé pour calculer les frais de privatisation. 70% est une moyenne courante en restauration.
+          </p>
         </div>
 
         <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 24 }}>
@@ -505,12 +592,17 @@ function Overview({ config, espaces, menus, mailboxes, initialPersonalization, o
   const [showPromptModal, setShowPromptModal] = useState(false)
   const [showStyleModal, setShowStyleModal] = useState(false)
   const [showReanalyzeDrawer, setShowReanalyzeDrawer] = useState(false)
+  const [showSeuilsModal, setShowSeuilsModal] = useState(false)
   const [editingStyle, setEditingStyle] = useState(false)
   const [editingCustom, setEditingCustom] = useState(false)
   const [localStyleRules, setLocalStyleRules] = useState(config.styleRules ?? '')
   const [localCustomRules, setLocalCustomRules] = useState(config.customRules ?? '')
+  const [localSeuilsCA, setLocalSeuilsCA] = useState<SeuilsCA>(config.seuilsCA ?? {})
+  const [localMargeStr, setLocalMargeStr] = useState(String(Math.round((config.margeMarchandise ?? 0.70) * 100)))
   const [savingStyle, setSavingStyle] = useState(false)
   const [savingCustom, setSavingCustom] = useState(false)
+  const [savingSeuilsCA, setSavingSeuilsCA] = useState(false)
+  const [savingMarge, setSavingMarge] = useState(false)
   const [resetting, setResetting] = useState(false)
 
   const [creditGate, setCreditGate] = useState<'confirm' | 'insufficient' | null>(null)
@@ -554,6 +646,22 @@ function Overview({ config, espaces, menus, mailboxes, initialPersonalization, o
     setSavingCustom(false)
     setEditingCustom(false)
     router.refresh()
+  }
+
+  const saveSeuilsCA = async () => {
+    setSavingSeuilsCA(true)
+    await putConfig({ seuilsCA: localSeuilsCA })
+    setSavingSeuilsCA(false)
+    setShowSeuilsModal(false)
+    router.refresh()
+  }
+
+  const saveMargeOnBlur = async () => {
+    const val = Number(localMargeStr)
+    if (isNaN(val) || val < 0 || val > 100) return
+    setSavingMarge(true)
+    await putConfig({ margeMarchandise: val / 100 })
+    setSavingMarge(false)
   }
 
   const handleReset = async () => {
@@ -657,6 +765,30 @@ function Overview({ config, espaces, menus, mailboxes, initialPersonalization, o
         </div>
       )}
 
+      {/* CA cibles modal */}
+      {showSeuilsModal && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', zIndex: 100, display: 'flex', alignItems: 'flex-start', justifyContent: 'center', padding: '40px 20px', overflowY: 'auto' }}
+          onClick={() => setShowSeuilsModal(false)}>
+          <div style={{ background: 'var(--surface)', borderRadius: 'var(--r-sm)', padding: '28px 32px', maxWidth: 660, width: '100%' }}
+            onClick={e => e.stopPropagation()}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+              <div style={{ fontSize: 16, fontWeight: 600 }}>CA cibles par salle</div>
+              <button onClick={() => setShowSeuilsModal(false)} style={{ ...S.btnSecondary, padding: '4px 10px' }}>✕</button>
+            </div>
+            <p style={{ fontSize: 13, color: 'var(--ink-500)', margin: '0 0 20px', lineHeight: 1.5 }}>
+              Seuils de CA au-delà desquels la privatisation est offerte. 0 = pas de calcul automatique pour ce créneau.
+            </p>
+            <CaGrid espaces={espaces} value={localSeuilsCA} onChange={setLocalSeuilsCA} />
+            <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', marginTop: 16 }}>
+              <button onClick={() => setShowSeuilsModal(false)} style={S.btnSecondary}>Annuler</button>
+              <button onClick={saveSeuilsCA} disabled={savingSeuilsCA} style={savingSeuilsCA ? S.btnDisabled : S.btnPrimary}>
+                {savingSeuilsCA ? 'Enregistrement…' : 'Enregistrer'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Header */}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 24 }}>
         <div>
@@ -689,14 +821,36 @@ function Overview({ config, espaces, menus, mailboxes, initialPersonalization, o
                 </div>
               )}
             </div>
-            <div style={{ display: 'flex', gap: 8, flexShrink: 0 }}>
+            <div style={{ display: 'flex', gap: 8, flexShrink: 0, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
+              <button onClick={() => setShowSeuilsModal(true)} style={S.btnSecondary}>CA cibles</button>
               <Link href="/config/espaces" style={{ ...S.btnSecondary, textDecoration: 'none', display: 'inline-flex', alignItems: 'center' }}>Espaces</Link>
               <Link href="/config/menus" style={{ ...S.btnSecondary, textDecoration: 'none', display: 'inline-flex', alignItems: 'center' }}>Menus</Link>
             </div>
           </div>
         </div>
 
-        {/* Card 2: Style */}
+        {/* Card 2: Privatisation */}
+        <div style={S.card}>
+          <div style={S.cardTitle}>Privatisation</div>
+          <div style={{ marginTop: 12, display: 'flex', alignItems: 'center', gap: 10 }}>
+            <label style={{ fontSize: 13, color: 'var(--ink-700)', flexShrink: 0 }}>Marge marchandise</label>
+            <input
+              type="number"
+              value={localMargeStr}
+              onChange={e => setLocalMargeStr(e.target.value)}
+              onBlur={saveMargeOnBlur}
+              min={0} max={100}
+              style={{ ...S.input, width: 72 }}
+            />
+            <span style={{ fontSize: 13, color: 'var(--ink-600)', flexShrink: 0 }}>%</span>
+            {savingMarge && <span style={{ fontSize: 12, color: 'var(--ink-400)' }}>Enregistrement…</span>}
+          </div>
+          <div style={{ fontSize: 12, color: 'var(--ink-400)', marginTop: 6, lineHeight: 1.5 }}>
+            Utilisé pour calculer les frais de privatisation. 70% est une moyenne courante. Sauvegardé automatiquement.
+          </div>
+        </div>
+
+        {/* Card 3: Style */}
         <div style={S.card}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: editingStyle ? 12 : (stylePreview ? 10 : 0) }}>
             <div>
@@ -735,7 +889,7 @@ function Overview({ config, espaces, menus, mailboxes, initialPersonalization, o
           )}
         </div>
 
-        {/* Card 3: Règles supplémentaires */}
+        {/* Card 4: Règles supplémentaires */}
         <div style={S.card}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: editingCustom || customPreview ? 10 : 0 }}>
             <div style={S.cardTitle}>Règles supplémentaires</div>

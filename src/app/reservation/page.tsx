@@ -1,6 +1,8 @@
 import { prisma } from '@/lib/db/prisma'
 import ReservationForm from '@/components/reservation/reservation-form'
 
+export const dynamic = 'force-dynamic'
+
 export default async function ReservationPage() {
   const restaurant = await prisma.restaurant.findFirst({
     select: { id: true, nom: true },
