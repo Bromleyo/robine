@@ -1,6 +1,6 @@
 import { getAppGraphToken } from './auth'
 import type { NormalizedEmail } from '@/lib/email/types'
-import { htmlToText } from '@/lib/email/html-to-text'
+import { htmlToText, stripQuotedReply } from '@/lib/email/html-to-text'
 
 const GRAPH_BASE = 'https://graph.microsoft.com/v1.0'
 
@@ -10,7 +10,7 @@ export function graphMessageToNormalized(msg: GraphMessage): NormalizedEmail {
     headers[h.name.toLowerCase()] = h.value
   }
   const bodyHtml = msg.body.contentType === 'html' ? msg.body.content : null
-  const bodyText = bodyHtml ? htmlToText(bodyHtml) : msg.body.content
+  const bodyText = stripQuotedReply(bodyHtml ? htmlToText(bodyHtml) : msg.body.content)
   return {
     providerMessageId: msg.id,
     internetMessageId: msg.internetMessageId,

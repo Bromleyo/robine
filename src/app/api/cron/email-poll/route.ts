@@ -5,7 +5,7 @@ import { encryptToken, decryptToken } from '@/lib/crypto/token-cipher'
 import { refreshGoogleToken } from '@/lib/google/auth'
 import { listGmailMessageIds, fetchGmailMessage } from '@/lib/google/gmail'
 import { processIncomingEmail } from '@/lib/email/process-incoming'
-import { htmlToText } from '@/lib/email/html-to-text'
+import { htmlToText, stripQuotedReply } from '@/lib/email/html-to-text'
 import { logger } from '@/lib/logger'
 
 async function refreshMicrosoftDelegatedToken(
@@ -66,7 +66,7 @@ function msMessageToNormalized(msg: MicrosoftMailMessage) {
 
   const isHtml = msg.body.contentType.toLowerCase() === 'html'
   const bodyHtml = isHtml ? msg.body.content : null
-  const bodyText = isHtml ? htmlToText(msg.body.content) : msg.body.content
+  const bodyText = stripQuotedReply(isHtml ? htmlToText(msg.body.content) : msg.body.content)
 
   return {
     providerMessageId: msg.id,
