@@ -57,7 +57,13 @@ export async function POST(
     : `${process.env.NEXTAUTH_URL}/api/webhooks/graph`
   const clientState = process.env.MS_GRAPH_WEBHOOK_SECRET ?? ''
 
-  const subscription = await createMailSubscriptionDelegated(accessToken, notificationUrl, clientState, mailbox.sharedMailboxEmail ?? undefined)
+  let subscription: { id: string; expirationDateTime: string }
+  try {
+    subscription = await createMailSubscriptionDelegated(accessToken, notificationUrl, clientState, mailbox.sharedMailboxEmail ?? undefined)
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err)
+    return NextResponse.json({ error: msg }, { status: 500 })
+  }
 
   await prisma.outlookMailbox.update({
     where: { id },
