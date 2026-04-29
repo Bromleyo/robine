@@ -13,7 +13,7 @@
 require('dotenv').config({ path: require('path').resolve(process.cwd(), '.env') })
 if (process.env.DIRECT_URL) process.env.DATABASE_URL = process.env.DIRECT_URL
 
-const RESTAURANT_ID = 'cmoecboxx'
+const RESTAURANT_ID = 'cmoecboxx000104jls85sji8n'
 const DOMAINS_TO_ADD = ['le-robin.fr', 'lerobin78.onmicrosoft.com']
 
 const isDryRun = !process.argv.includes('--execute')
