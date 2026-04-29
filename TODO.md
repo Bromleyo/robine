@@ -17,3 +17,16 @@ await prisma.rejectedEmail.upsert({
 })
 ```
 **Priorité** : Basse — n'affecte pas la correction des données, seulement la propreté des logs.
+
+---
+
+## Infrastructure / technique
+
+### Résoudre le drift Prisma migrations vs schema
+**Contexte** : Le projet utilise actuellement `prisma db push` à cause d'un drift historique entre le
+schema actuel et les 2 migrations historiques. `prisma migrate dev` échoue avec une erreur de drift détecté.
+**Action** : Créer une migration baseline qui capture le state actuel du schema, puis reprendre le workflow
+`prisma migrate dev` pour avoir un historique versionné des changements de schema.
+Commande de base : `prisma migrate resolve --applied <migration_name>` après avoir créé la baseline manuellement.
+**Priorité** : Moyenne — fonctionnel en l'état, mais nécessaire avant d'onboarder un collaborateur ou de
+mettre en place un pipeline CI/CD avec migrations automatiques.
