@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { checkAddressing } from '../layer1-addressing'
+import { checkAddressing, checkBlacklistedSender } from '../layer1-addressing'
 import type { NormalizedEmail } from '@/lib/email/types'
 
 function makeEmail(overrides: Partial<NormalizedEmail> = {}): NormalizedEmail {
@@ -52,5 +52,22 @@ describe('checkAddressing', () => {
   it('accepts when mailbox is among multiple to recipients', () => {
     const msg = makeEmail({ toRecipients: ['boss@restaurant.com', MAILBOX] })
     expect(checkAddressing(msg, MAILBOX)).toBeNull()
+  })
+})
+
+describe('checkBlacklistedSender', () => {
+  it('rejects email from blacklisted sender with reason test_email', () => {
+    const msg = makeEmail({ from: { address: 'jimmy.dubreuil@gmail.com', name: 'Jimmy' } })
+    expect(checkBlacklistedSender(msg)).toMatchObject({ action: 'reject', rejectReason: 'test_email' })
+  })
+
+  it('rejects case-insensitively', () => {
+    const msg = makeEmail({ from: { address: 'Jimmy.Dubreuil@Gmail.COM', name: 'Jimmy' } })
+    expect(checkBlacklistedSender(msg)).toMatchObject({ action: 'reject', rejectReason: 'test_email' })
+  })
+
+  it('passes through email not in blacklist', () => {
+    const msg = makeEmail({ from: { address: 'client@example.com', name: 'Client' } })
+    expect(checkBlacklistedSender(msg)).toBeNull()
   })
 })

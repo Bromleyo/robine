@@ -1,5 +1,13 @@
 import type { NormalizedEmail } from '@/lib/email/types'
 import type { FilterDecision } from './types'
+import { BLACKLISTED_SENDER_EMAILS } from './domains'
+
+export function checkBlacklistedSender(email: NormalizedEmail): FilterDecision | null {
+  if (BLACKLISTED_SENDER_EMAILS.includes(email.from.address.toLowerCase())) {
+    return { action: 'reject', rejectReason: 'test_email', details: `blacklisted sender: ${email.from.address}` }
+  }
+  return null
+}
 
 export function checkAddressing(message: NormalizedEmail, mailboxEmail: string): FilterDecision | null {
   const addressLower = mailboxEmail.toLowerCase()

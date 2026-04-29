@@ -6,6 +6,7 @@ export type RejectReason =
   | 'noreply_sender'
   | 'prospection'
   | 'blacklisted_domain'
+  | 'test_email'
 
 export type FilterDecision =
   | { action: 'accept_direct'; reason: string; matchedKeywords: string[] }

@@ -1,3 +1,7 @@
+export const BLACKLISTED_SENDER_EMAILS = [
+  'jimmy.dubreuil@gmail.com',
+]
+
 export const PROSPECTION_DOMAINS = [
   'hubspot.com', 'mailchimp.com', 'sendinblue.com', 'brevo.com',
   'lemlist.com', 'woodpecker.co', 'outreach.io', 'salesloft.com',
