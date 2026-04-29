@@ -1,6 +1,7 @@
 import NextAuth from 'next-auth'
 import { authConfig } from '@/auth.config'
 import { prisma } from '@/lib/db/prisma'
+import { attachUserToMatchingRestaurant } from '@/lib/onboarding'
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
   ...authConfig,
@@ -27,7 +28,21 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         token.nom = dbUser.nom
         token.avatarColor = dbUser.avatarColor
 
-        const membership = dbUser.memberships[0]
+        let membership: { restaurantId: string; role: string } | undefined = dbUser.memberships[0]
+        if (!membership) {
+          // SSO domain auto-attach : si le domaine de l'email matche un
+          // restaurant via allowedDomains, on attache l'user en RESPONSABLE.
+          const attached = await attachUserToMatchingRestaurant({
+            userId: dbUser.id,
+            email: user.email,
+          })
+          if (attached) {
+            membership = {
+              restaurantId: attached.membership.restaurantId,
+              role: attached.membership.role,
+            }
+          }
+        }
         if (membership) {
           token.restaurantId = membership.restaurantId
           token.role = membership.role

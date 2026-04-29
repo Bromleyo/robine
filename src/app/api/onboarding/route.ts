@@ -1,18 +1,31 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { auth } from '@/auth'
 import { prisma } from '@/lib/db/prisma'
+import { attachUserToMatchingRestaurant, extractEmailDomain } from '@/lib/onboarding'
 
 export async function POST(req: NextRequest) {
   try {
     const session = await auth()
     const userId = session?.user?.id
-    if (!userId) {
+    const userEmail = session?.user?.email
+    if (!userId || !userEmail) {
       return NextResponse.json({ error: 'Unauthorized – no session user id' }, { status: 401 })
     }
 
     const existing = await prisma.membership.findFirst({ where: { userId } })
     if (existing) {
       return NextResponse.json({ error: 'Already configured' }, { status: 409 })
+    }
+
+    // SSO domain auto-attach : si le domaine de l'email matche un restaurant existant,
+    // on attache l'utilisateur en RESPONSABLE sans demander le formulaire.
+    const attached = await attachUserToMatchingRestaurant({ userId, email: userEmail })
+    if (attached) {
+      return NextResponse.json({
+        ok: true,
+        restaurantId: attached.restaurant.id,
+        attached: true,
+      })
     }
 
     const body = await req.json().catch(() => ({})) as { nom?: string; emailGroupes?: string }
@@ -30,9 +43,12 @@ export async function POST(req: NextRequest) {
       .replace(/[^a-z0-9]+/g, '-')
       .replace(/^-|-$/g, '')
 
+    const userDomain = extractEmailDomain(userEmail)
+    const allowedDomains = userDomain ? [userDomain] : []
+
     const { restaurant } = await prisma.$transaction(async (tx) => {
       const restaurant = await tx.restaurant.create({
-        data: { nom, slug: `${slug}-${Date.now()}`, emailGroupes },
+        data: { nom, slug: `${slug}-${Date.now()}`, emailGroupes, allowedDomains },
       })
       await tx.membership.create({
         data: { userId, restaurantId: restaurant.id, role: 'ADMIN' },
