@@ -28,12 +28,12 @@ const FALLBACK_NON_DEMANDE = (senderEmail: string): EmailExtraction => ({
   notes: null, confidence: 'low',
 })
 
-const FALLBACK_PARSE_ERROR = (senderEmail: string, emailText: string): EmailExtraction => ({
-  isDemandeEvenement: true, nomContact: null, emailContact: senderEmail,
+const FALLBACK_PARSE_ERROR = (senderEmail: string): EmailExtraction => ({
+  isDemandeEvenement: false, nomContact: null, emailContact: senderEmail,
   societeContact: null, telephoneContact: null, typeEvenement: null,
   dateEvenement: null, heureDebut: null, heureFin: null,
   nbInvites: null, budgetIndicatifCents: null, contraintesAlimentaires: [],
-  notes: emailText.slice(0, 500), confidence: 'low',
+  notes: null, confidence: 'low',
 })
 
 const SYSTEM_PROMPT = `Tu es un assistant qui filtre les emails reçus par un restaurant gastronomique.
@@ -97,7 +97,7 @@ export async function extractDemandeFromEmail(
     const result = EmailExtractionSchema.safeParse(json)
     if (!result.success) {
       console.error('[extract-email] Schema validation failed:', result.error.flatten())
-      return FALLBACK_PARSE_ERROR(senderEmail, emailText)
+      return FALLBACK_PARSE_ERROR(senderEmail)
     }
     const data = result.data
     if (data.isDemandeEvenement === false) return FALLBACK_NON_DEMANDE(senderEmail)
@@ -118,6 +118,6 @@ export async function extractDemandeFromEmail(
       confidence: data.confidence ?? 'low',
     }
   } catch {
-    return FALLBACK_PARSE_ERROR(senderEmail, emailText)
+    return FALLBACK_PARSE_ERROR(senderEmail)
   }
 }

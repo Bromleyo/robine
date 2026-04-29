@@ -29,7 +29,7 @@ export async function POST(req: NextRequest) {
 
   const body = await req.json().catch(() => ({})) as { since?: string; limit?: number }
   const since = body.since ?? '2026-04-01'
-  const limit = body.limit ?? 200
+  const limit = body.limit ?? 500
   const sinceDate = new Date(`${since}T00:00:00Z`)
 
   const mailbox = await prisma.outlookMailbox.findFirst({

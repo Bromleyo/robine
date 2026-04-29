@@ -17,4 +17,6 @@ export const PROSPECTION_DOMAINS = [
   'acms.asso.fr',
   // transactions financières
   'paypal.fr', 'paypal.com',
+  // fournisseurs (emails automatisés factures/relevés)
+  'ledelas.fr',
 ]
