@@ -1,6 +1,6 @@
 import type { NormalizedEmail } from '@/lib/email/types'
 import type { FilterDecision } from './types'
-import { BLACKLISTED_SENDER_EMAILS, KNOWN_FALSE_POSITIVE_EMAILS } from './domains'
+import { BLACKLISTED_SENDER_EMAILS, KNOWN_FALSE_POSITIVE_EMAILS, BLACKLISTED_SENDER_PATTERNS } from './domains'
 
 export function checkBlacklistedSender(email: NormalizedEmail): FilterDecision | null {
   const addr = email.from.address.toLowerCase()
@@ -9,6 +9,11 @@ export function checkBlacklistedSender(email: NormalizedEmail): FilterDecision |
   }
   if (KNOWN_FALSE_POSITIVE_EMAILS.includes(addr)) {
     return { action: 'reject', rejectReason: 'known_false_positive', details: `known false positive sender: ${email.from.address}` }
+  }
+  for (const pattern of BLACKLISTED_SENDER_PATTERNS) {
+    if (pattern.test(addr)) {
+      return { action: 'reject', rejectReason: 'noreply_sender', details: `auto sender pattern: ${email.from.address}` }
+    }
   }
   return null
 }

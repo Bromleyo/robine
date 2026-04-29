@@ -81,3 +81,33 @@ describe('checkBlacklistedSender', () => {
     expect(checkBlacklistedSender(msg)).toBeNull()
   })
 })
+
+describe('checkBlacklistedSender — patterns auto (BLACKLISTED_SENDER_PATTERNS)', () => {
+  const rejects = (address: string) =>
+    expect(checkBlacklistedSender(makeEmail({ from: { address, name: 'Auto' } })))
+      .toMatchObject({ action: 'reject', rejectReason: 'noreply_sender' })
+
+  it('rejects bonjour@e.* (ESP Backmarket)', () => rejects('bonjour@e.backmarket.fr'))
+  it('rejects bonjour@e.* case-insensitively', () => rejects('Bonjour@E.Brand.COM'))
+  it('rejects campaigns@* (Bizay)', () => rejects('campaigns@mail.bizay.com'))
+  it('rejects campaigns@* any domain', () => rejects('campaigns@newsletter.example.fr'))
+  it('rejects shop@mail.* (Gilac)', () => rejects('shop@mail.gilac.com'))
+  it('rejects shop@mail.* any subdomain', () => rejects('shop@mail.autre-distrib.fr'))
+  it('rejects webmaster-* (Richard)', () => rejects('webmaster-cr@richard.fr'))
+  it('rejects webmaster-* any suffix', () => rejects('webmaster-admin@company.fr'))
+  it('rejects make-events@ (Make.com)', () => rejects('make-events@make.com'))
+  it('rejects no-reply-{suffix}@ (e-facture)', () => rejects('no-reply-groupeup@e-facture.net'))
+  it('rejects no-reply-{suffix}@ any suffix', () => rejects('no-reply-system@service.com'))
+  it('rejects @n.<brand>.tld (Retif ESP)', () => rejects('retif.france@n.retif.eu'))
+  it('rejects @n.<brand>.tld any brand', () => rejects('sender@n.somecompany.fr'))
+
+  it('does not reject legitimate sender', () => {
+    expect(checkBlacklistedSender(makeEmail({ from: { address: 'client@example.com', name: 'Client' } }))).toBeNull()
+  })
+  it('does not reject bonjour@ without e. subdomain', () => {
+    expect(checkBlacklistedSender(makeEmail({ from: { address: 'bonjour@company.fr', name: 'Co' } }))).toBeNull()
+  })
+  it('does not reject webmaster@ without dash', () => {
+    expect(checkBlacklistedSender(makeEmail({ from: { address: 'webmaster@company.fr', name: 'Co' } }))).toBeNull()
+  })
+})
