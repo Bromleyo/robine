@@ -7,6 +7,8 @@ export type RejectReason =
   | 'prospection'
   | 'blacklisted_domain'
   | 'test_email'
+  | 'known_false_positive'
+  | 'llm_reject'
 
 export type FilterDecision =
   | { action: 'accept_direct'; reason: string; matchedKeywords: string[] }

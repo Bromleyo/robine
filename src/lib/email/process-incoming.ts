@@ -112,20 +112,21 @@ export async function processIncomingEmail(email: NormalizedEmail, mailbox: Mail
 
   const extraction = await extractDemandeFromEmail(email.bodyText, email.from.address)
   if (!extraction.isDemandeEvenement) {
-    if (filterResult.decision.action === 'send_to_llm' && filterResult.decision.softRejectReason) {
-      await logRejectedEmail({
-        restaurantId,
-        mailboxId: mailbox.id,
-        microsoftGraphId: email.providerMessageId,
-        fromEmail: email.from.address,
-        fromName: email.from.name,
-        subject: email.subject,
-        rejectReason: 'prospection',
-        details: `soft_reject_confirmed_by_llm: ${filterResult.decision.softRejectReason}`,
-        bodySnippet: email.bodyText.slice(0, 400),
-        receivedAt: email.receivedAt,
-      })
-    }
+    const softReject = filterResult.decision.action === 'send_to_llm'
+      ? filterResult.decision.softRejectReason
+      : undefined
+    await logRejectedEmail({
+      restaurantId,
+      mailboxId: mailbox.id,
+      microsoftGraphId: email.providerMessageId,
+      fromEmail: email.from.address,
+      fromName: email.from.name,
+      subject: email.subject,
+      rejectReason: softReject ? 'prospection' : 'llm_reject',
+      details: softReject ? `soft_reject_confirmed_by_llm: ${softReject}` : null,
+      bodySnippet: email.bodyText.slice(0, 400),
+      receivedAt: email.receivedAt,
+    })
     logger.info({ fromEmail: email.from.address }, 'not an event request, skipping')
     return
   }

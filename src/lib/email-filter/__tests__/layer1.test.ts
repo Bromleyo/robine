@@ -66,6 +66,16 @@ describe('checkBlacklistedSender', () => {
     expect(checkBlacklistedSender(msg)).toMatchObject({ action: 'reject', rejectReason: 'test_email' })
   })
 
+  it('rejects known false positive sender with reason known_false_positive', () => {
+    const msg = makeEmail({ from: { address: 'cachaca.rio@gmail.com', name: 'Martine' } })
+    expect(checkBlacklistedSender(msg)).toMatchObject({ action: 'reject', rejectReason: 'known_false_positive' })
+  })
+
+  it('rejects known false positive sender case-insensitively', () => {
+    const msg = makeEmail({ from: { address: 'Cachaca.Rio@Gmail.COM', name: 'Martine' } })
+    expect(checkBlacklistedSender(msg)).toMatchObject({ action: 'reject', rejectReason: 'known_false_positive' })
+  })
+
   it('passes through email not in blacklist', () => {
     const msg = makeEmail({ from: { address: 'client@example.com', name: 'Client' } })
     expect(checkBlacklistedSender(msg)).toBeNull()
