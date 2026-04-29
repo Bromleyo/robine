@@ -83,6 +83,7 @@ model Restaurant {
   graphSubscriptionId     String?
   graphSubscriptionExpiry DateTime?
   referenceSeq            Int       @default(0)
+  allowedDomains          String[]  @default([])
   createdAt               DateTime  @default(now())
   updatedAt               DateTime  @updatedAt
 
@@ -253,6 +254,7 @@ model Demande {
   lastMessageDirection DirectionMessage?
   confirmedAt         DateTime?
   annuleAt            DateTime?
+  legacyReference     String?
   createdAt           DateTime        @default(now())
   updatedAt           DateTime        @updatedAt
 
@@ -269,6 +271,7 @@ model Demande {
   @@index([restaurantId, statut])
   @@index([restaurantId, dateEvenement])
   @@index([restaurantId, espaceId, dateEvenement])
+  @@index([legacyReference])
   @@map("demandes")
 }
 
