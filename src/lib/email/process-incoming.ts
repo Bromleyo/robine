@@ -51,12 +51,30 @@ export async function processIncomingEmail(email: NormalizedEmail, mailbox: Mail
     return
   }
 
-  const existingThread = email.conversationId
-    ? await prisma.thread.findFirst({
-        where: { graphConversationId: email.conversationId, demande: { restaurantId } },
-        select: { id: true, demandeId: true },
-      })
-    : null
+  let existingThread: { id: string; demandeId: string } | null = null
+
+  if (email.conversationId) {
+    existingThread = await prisma.thread.findFirst({
+      where: { graphConversationId: email.conversationId, demande: { restaurantId } },
+      select: { id: true, demandeId: true },
+    })
+  }
+
+  if (!existingThread && email.inReplyTo) {
+    const parent = await prisma.message.findFirst({
+      where: { messageIdHeader: email.inReplyTo, thread: { demande: { restaurantId } } },
+      select: { threadId: true, thread: { select: { demandeId: true } } },
+    })
+    if (parent) existingThread = { id: parent.threadId, demandeId: parent.thread.demandeId }
+  }
+
+  if (!existingThread && email.references.length > 0) {
+    const ancestor = await prisma.message.findFirst({
+      where: { messageIdHeader: { in: email.references }, thread: { demande: { restaurantId } } },
+      select: { threadId: true, thread: { select: { demandeId: true } } },
+    })
+    if (ancestor) existingThread = { id: ancestor.threadId, demandeId: ancestor.thread.demandeId }
+  }
 
   if (existingThread) {
     await storeMessage(existingThread.id, email)
