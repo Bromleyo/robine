@@ -65,7 +65,8 @@ export default function Sidebar({ restaurantNom = 'Robin', userName, userInitial
     >
       {/* Brand */}
       <Link href="/dashboard" style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: 4, padding: '6px 10px 22px', textDecoration: 'none' }}>
-        <Image src="/robine-logo-petit.png" alt="Robine" width={36} height={36} style={{ objectFit: 'contain' }} />
+        <Image src="/robine-logo.png" alt="Robine" width={148} height={35} className="sidebar-logo-full" style={{ objectFit: 'contain' }} />
+        <Image src="/robine-logo-petit.png" alt="Robine" width={36} height={36} className="sidebar-logo-mini" style={{ objectFit: 'contain' }} />
         <div style={{ fontSize: 12, fontWeight: 500, color: 'var(--ink-500)', lineHeight: 1.3 }}>
           <span style={{ fontSize: 10, fontWeight: 400, textTransform: 'uppercase', letterSpacing: '0.06em', color: 'var(--ink-400)', display: 'block' }}>Établissement</span>
           {restaurantNom}
