@@ -1,7 +1,10 @@
 import type { NormalizedEmail } from '@/lib/email/types'
-import type { FilterDecision } from './types'
+import type { FilterDecision, RejectReason } from './types'
 import { PROSPECTION_DOMAINS } from './domains'
 import { PROSPECTION_PHRASES, EVENT_KEYWORDS } from './keywords'
+
+// Empty — populate case-by-case when subject-based hard rejects are needed
+const SUBJECT_HARD_REJECT: Array<{ pattern: RegExp; rejectReason: RejectReason; details: string }> = []
 
 function normalize(text: string): string {
   return text.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '')
@@ -24,6 +27,13 @@ function hasFutureDate(normText: string): boolean {
 }
 
 export function checkBusinessSignals(message: NormalizedEmail, bodyText: string): FilterDecision {
+  const normSubject = normalize(message.subject ?? '')
+  for (const rule of SUBJECT_HARD_REJECT) {
+    if (rule.pattern.test(normSubject)) {
+      return { action: 'reject', rejectReason: rule.rejectReason, details: rule.details }
+    }
+  }
+
   const fromDomain = message.from.address.split('@')[1]?.toLowerCase()
   if (fromDomain && PROSPECTION_DOMAINS.includes(fromDomain)) {
     return { action: 'reject', rejectReason: 'blacklisted_domain', details: fromDomain }

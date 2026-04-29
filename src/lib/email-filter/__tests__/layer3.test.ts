@@ -28,6 +28,18 @@ describe('checkBusinessSignals — blacklisted domains', () => {
   it('rejects thefork.com sender', () => {
     expect(checkBusinessSignals(makeEmail('Hello', 'info@thefork.com'), '')).toMatchObject({ action: 'reject', rejectReason: 'blacklisted_domain' })
   })
+
+  it('rejects acms.asso.fr sender (règle 1 — médecine du travail)', () => {
+    expect(checkBusinessSignals(makeEmail('Rappel ACMS', 'acms-versailles@acms.asso.fr'), '')).toMatchObject({ action: 'reject', rejectReason: 'blacklisted_domain' })
+  })
+
+  it('rejects paypal.fr sender (règle 1 — transaction financière)', () => {
+    expect(checkBusinessSignals(makeEmail('Reçu de paiement', 'service@paypal.fr'), '')).toMatchObject({ action: 'reject', rejectReason: 'blacklisted_domain' })
+  })
+
+  it('rejects paypal.com sender', () => {
+    expect(checkBusinessSignals(makeEmail('Payment receipt', 'service@paypal.com'), '')).toMatchObject({ action: 'reject', rejectReason: 'blacklisted_domain' })
+  })
 })
 
 describe('checkBusinessSignals — prospection phrases', () => {
@@ -44,6 +56,26 @@ describe('checkBusinessSignals — prospection phrases', () => {
   it('sends to LLM when prospection phrase + strong event keyword (soft reject)', () => {
     const body = 'Je me permets de vous contacter pour organiser un séminaire privatisé chez vous.'
     expect(checkBusinessSignals(makeEmail('Séminaire'), body)).toMatchObject({ action: 'send_to_llm', softRejectReason: expect.any(String) })
+  })
+
+  it('rejects "à l\'attention du responsable commercial" (règle 4 — démarchage)', () => {
+    const body = "À l'attention du Responsable Commercial. Je vous propose notre solution de visite 360°."
+    expect(checkBusinessSignals(makeEmail('Visite 360°'), body)).toMatchObject({ action: 'reject', rejectReason: 'prospection' })
+  })
+
+  it('rejects "valoriser vos espaces" (règle 4 — démarchage)', () => {
+    const body = 'De par votre activité vous cherchez à valoriser vos espaces et rendre votre offre plus attractive.'
+    expect(checkBusinessSignals(makeEmail('Proposition commerciale'), body)).toMatchObject({ action: 'reject', rejectReason: 'prospection' })
+  })
+
+  it('rejects "job dating" in subject (règle 5 — invitation B2B)', () => {
+    const body = 'Comme chaque année, nous vous invitons à notre job dating mercredi prochain.'
+    expect(checkBusinessSignals(makeEmail('Job Dating CFA Trajectoire'), body)).toMatchObject({ action: 'reject', rejectReason: 'prospection' })
+  })
+
+  it('rejects "vous êtes invité à participer" (règle 5 — invitation B2B)', () => {
+    const body = 'Vous êtes invité à participer à la matinale des professionnels Costco le 21 avril.'
+    expect(checkBusinessSignals(makeEmail('Invitation matinale pro'), body)).toMatchObject({ action: 'reject', rejectReason: 'prospection' })
   })
 })
 

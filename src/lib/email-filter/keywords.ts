@@ -19,6 +19,13 @@ export const PROSPECTION_PHRASES = [
   "nous proposons aux restaurateurs",
   "je reviens vers vous suite a mon precedent",
   "sauf erreur de ma part",
+  // démarchage commercial (règle 4)
+  "a l'attention du responsable commercial",
+  "valoriser vos espaces",
+  // invitations B2B / événements tiers (règle 5)
+  "vous etes invite a participer",
+  "vous invite a participer",
+  "job dating",
 ]
 
 export const EVENT_KEYWORDS = {

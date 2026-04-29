@@ -13,4 +13,8 @@ export const PROSPECTION_DOMAINS = [
   // faux positifs confirmés
   'eurovolailles.fr', 'iscod.fr', 'proweltek.com',
   'habitium.com', 'piecesauto24.com', 'em.edenred.fr',
+  // admin RH / médecine du travail
+  'acms.asso.fr',
+  // transactions financières
+  'paypal.fr', 'paypal.com',
 ]

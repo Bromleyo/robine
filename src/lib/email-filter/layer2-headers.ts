@@ -12,6 +12,8 @@ const SPAM_HEADER_PREFIXES = [
 ]
 
 const NOREPLY_RE = /^(noreply|no-reply|do-not-reply|newsletter|marketing|notifications?|alerts?|no_reply)@/i
+// Catches "ne-pas-repondre" when it appears mid-address (e.g. "acms-ne-pas-repondre@acms.asso.fr")
+const NOREPLY_SUBSTRING_RE = /\bne-pas-repondre\b/i
 
 export function checkSpamHeaders(message: NormalizedEmail): FilterDecision | null {
   const headerKeys = Object.keys(message.headers)
@@ -32,7 +34,7 @@ export function checkSpamHeaders(message: NormalizedEmail): FilterDecision | nul
     return { action: 'reject', rejectReason: 'spam_headers', details: `Precedence: ${precedence}` }
   }
 
-  if (NOREPLY_RE.test(message.from.address)) {
+  if (NOREPLY_RE.test(message.from.address) || NOREPLY_SUBSTRING_RE.test(message.from.address)) {
     return { action: 'reject', rejectReason: 'noreply_sender', details: message.from.address }
   }
 

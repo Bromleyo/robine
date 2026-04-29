@@ -84,4 +84,12 @@ describe('checkSpamHeaders', () => {
   it('rejects notifications@ sender', () => {
     expect(checkSpamHeaders(makeEmail('notifications@app.com'))).toMatchObject({ rejectReason: 'noreply_sender' })
   })
+
+  it('rejects ne-pas-repondre mid-address (e.g. acms-ne-pas-repondre@acms.asso.fr)', () => {
+    expect(checkSpamHeaders(makeEmail('acms-ne-pas-repondre@acms.asso.fr'))).toMatchObject({ action: 'reject', rejectReason: 'noreply_sender' })
+  })
+
+  it('rejects ne-pas-repondre case-insensitively', () => {
+    expect(checkSpamHeaders(makeEmail('service-NE-PAS-REPONDRE@example.fr'))).toMatchObject({ rejectReason: 'noreply_sender' })
+  })
 })
