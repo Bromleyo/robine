@@ -35,6 +35,7 @@ export const EVENT_KEYWORDS = {
     'reception privee',
     'soiree privee',
     'devis groupe', 'tarif groupe', 'tarifs groupe',
+    'rotary', 'lions club', 'kiwanis',
   ],
   medium: [
     'evenement',
@@ -44,5 +45,6 @@ export const EVENT_KEYWORDS = {
     "repas d'entreprise", 'repas dentreprise',
     "repas d'affaires",
     "diner d'entreprise", 'diner dentreprise',
+    'association', 'reunion',
   ],
 }

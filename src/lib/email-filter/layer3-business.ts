@@ -41,6 +41,14 @@ export function checkBusinessSignals(message: NormalizedEmail, bodyText: string)
           softRejectReason: `prospection phrase matched: "${phrase}"`,
         }
       }
+      const hasMedium = EVENT_KEYWORDS.medium.some(kw => searchText.includes(kw))
+      if (hasMedium) {
+        return {
+          action: 'send_to_llm',
+          reason: 'ambiguous: prospection phrase + medium event keyword',
+          softRejectReason: `prospection phrase matched: "${phrase}"`,
+        }
+      }
       return { action: 'reject', rejectReason: 'prospection', details: phrase }
     }
   }

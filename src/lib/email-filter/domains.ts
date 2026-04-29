@@ -6,4 +6,7 @@ export const PROSPECTION_DOMAINS = [
   'lafourchette.com', 'thefork.com', 'yelp.com', 'tripadvisor.fr', 'tripadvisor.com',
   'getresponse.com', 'activecampaign.com', 'klaviyo.com',
   'constantcontact.com', 'campaignmonitor.com',
+  // faux positifs confirmés
+  'eurovolailles.fr', 'iscod.fr', 'proweltek.com',
+  'habitium.com', 'piecesauto24.com', 'em.edenred.fr',
 ]
