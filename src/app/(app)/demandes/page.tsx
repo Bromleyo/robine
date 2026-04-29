@@ -1,9 +1,11 @@
 import { auth } from '@/auth'
 import { redirect } from 'next/navigation'
 import Link from 'next/link'
-import { fetchDemandesAll } from '@/lib/db/demandes'
+import { fetchDemandesAll, countDemandesByView, type DemandesView } from '@/lib/db/demandes'
 import { calculerUrgenceDemande } from '@/lib/business/urgence'
 import Topbar from '@/components/layout/topbar'
+import ViewTabs from '@/components/demandes/view-tabs'
+import RestoreButton from '@/components/demandes/restore-button'
 
 const STATUT_LABEL: Record<string, string> = {
   NOUVELLE: 'Nouvelle', EN_COURS: 'En cours',
@@ -29,12 +31,25 @@ function formatDate(d: Date) {
   return new Intl.DateTimeFormat('fr-FR', { day: 'numeric', month: 'short', year: 'numeric' }).format(d)
 }
 
-export default async function DemandesPage() {
+export default async function DemandesPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ view?: string }>
+}) {
   const session = await auth()
   if (!session?.user?.restaurantId) redirect('/login')
 
-  const rows = await fetchDemandesAll(session.user.restaurantId)
+  const sp = await searchParams
+  const view: DemandesView =
+    sp.view === 'archived' || sp.view === 'trash' ? sp.view : 'active'
+
+  const [rows, counts] = await Promise.all([
+    fetchDemandesAll(session.user.restaurantId, view),
+    countDemandesByView(session.user.restaurantId),
+  ])
   const now = new Date()
+  const showRestore = view !== 'active'
+  const restoreFrom: 'archive' | 'trash' = view === 'trash' ? 'trash' : 'archive'
 
   const enriched = rows.map(d => {
     const urgence = calculerUrgenceDemande({
@@ -49,7 +64,18 @@ export default async function DemandesPage() {
 
   return (
     <>
-      <Topbar title="Demandes" subtitle={`${rows.length} demande${rows.length > 1 ? 's' : ''}`} />
+      <Topbar
+        title="Demandes"
+        subtitle={`${rows.length} demande${rows.length > 1 ? 's' : ''}`}
+        hidePrimary={view !== 'active'}
+      />
+
+      <ViewTabs
+        active={counts.active}
+        archived={counts.archived}
+        trash={counts.trash}
+        current={view}
+      />
 
       <div style={{
         padding: '10px 24px', background: 'var(--surface)',
@@ -83,12 +109,21 @@ export default async function DemandesPage() {
                   borderBottom: '1px solid var(--border)',
                 }}>{h}</th>
               ))}
+              {showRestore && (
+                <th style={{
+                  padding: '10px 16px', textAlign: 'right',
+                  fontSize: 11, fontWeight: 600, textTransform: 'uppercase',
+                  letterSpacing: '0.07em', color: 'var(--ink-400)',
+                  background: 'var(--surface)', position: 'sticky', top: 0,
+                  borderBottom: '1px solid var(--border)',
+                }}>Actions</th>
+              )}
             </tr>
           </thead>
           <tbody>
             {enriched.length === 0 && (
               <tr>
-                <td colSpan={6} style={{
+                <td colSpan={showRestore ? 7 : 6} style={{
                   padding: '48px 16px', textAlign: 'center',
                   color: 'var(--ink-400)', fontSize: 13,
                 }}>Aucune demande</td>
@@ -150,6 +185,12 @@ export default async function DemandesPage() {
                     {d.lastMessageAt ? formatDate(d.lastMessageAt) : '—'}
                   </span>
                 </td>
+
+                {showRestore && (
+                  <td style={{ padding: '11px 16px', textAlign: 'right', whiteSpace: 'nowrap' }}>
+                    <RestoreButton demandeId={d.id} from={restoreFrom} />
+                  </td>
+                )}
               </tr>
             ))}
           </tbody>

@@ -9,6 +9,8 @@ export type RejectReason =
   | 'test_email'
   | 'known_false_positive'
   | 'llm_reject'
+  | 'manual_blacklist'
+  | 'manually_archived'
 
 export type FilterDecision =
   | { action: 'accept_direct'; reason: string; matchedKeywords: string[] }

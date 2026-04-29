@@ -1,14 +1,23 @@
 import type { NormalizedEmail } from '@/lib/email/types'
 import type { FilterResult } from './types'
-import { checkBlacklistedSender } from './layer1-addressing'
+import { checkBlacklistedSender, type ExtraBlacklist } from './layer1-addressing'
 import { checkSpamHeaders } from './layer2-headers'
 import { checkBusinessSignals } from './layer3-business'
 import { extractBasicFields } from './extract-basic'
 
 export type { FilterDecision, FilterResult, RejectReason } from './types'
+export type { ExtraBlacklist } from './layer1-addressing'
 
-export function filterEmail(email: NormalizedEmail, mailboxEmail: string): FilterResult {
-  const l1 = checkBlacklistedSender(email)
+export type FilterOptions = {
+  extraBlacklist?: ExtraBlacklist
+}
+
+export function filterEmail(
+  email: NormalizedEmail,
+  mailboxEmail: string,
+  options?: FilterOptions,
+): FilterResult {
+  const l1 = checkBlacklistedSender(email, options?.extraBlacklist)
   if (l1) return { decision: l1 }
 
   const l2 = checkSpamHeaders(email)

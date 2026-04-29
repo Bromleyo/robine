@@ -88,14 +88,31 @@ export async function fetchDemandeDetail(restaurantId: string, id: string) {
   })
 }
 
-export async function fetchDemandesAll(restaurantId: string) {
+export type DemandesView = 'active' | 'archived' | 'trash'
+
+export async function fetchDemandesAll(restaurantId: string, view: DemandesView = 'active') {
+  const where = (() => {
+    if (view === 'trash') return { restaurantId, deletedAt: { not: null } }
+    if (view === 'archived') return { restaurantId, archivedAt: { not: null }, deletedAt: null }
+    return { restaurantId, archivedAt: null, deletedAt: null }
+  })()
+
   return prisma.demande.findMany({
-    where: { restaurantId },
+    where,
     include: {
       contact: { select: { id: true, nom: true, email: true, societe: true } },
     },
     orderBy: [{ lastMessageAt: 'desc' }, { createdAt: 'desc' }],
   })
+}
+
+export async function countDemandesByView(restaurantId: string) {
+  const [active, archived, trash] = await Promise.all([
+    prisma.demande.count({ where: { restaurantId, archivedAt: null, deletedAt: null } }),
+    prisma.demande.count({ where: { restaurantId, archivedAt: { not: null }, deletedAt: null } }),
+    prisma.demande.count({ where: { restaurantId, deletedAt: { not: null } } }),
+  ])
+  return { active, archived, trash }
 }
 
 export async function nextReferenceSeq(restaurantId: string): Promise<string> {

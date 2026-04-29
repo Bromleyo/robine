@@ -1,5 +1,5 @@
 import { prisma } from '@/lib/db/prisma'
-import { filterEmail, type RejectReason } from '@/lib/email-filter'
+import { filterEmail, type RejectReason, type ExtraBlacklist } from '@/lib/email-filter'
 import { extractDemandeFromEmail } from '@/lib/llm/extract-email'
 import { detecterConflits } from '@/lib/business/conflit'
 import { calculerUrgenceDemande } from '@/lib/business/urgence'
@@ -32,7 +32,8 @@ export async function processIncomingEmail(email: NormalizedEmail, mailbox: Mail
   })
   if (exists) return
 
-  const filterResult = filterEmail(email, mailbox.email)
+  const extraBlacklist = await loadRestaurantBlacklist(restaurantId)
+  const filterResult = filterEmail(email, mailbox.email, { extraBlacklist })
 
   if (filterResult.decision.action === 'reject') {
     await logRejectedEmail({
@@ -268,6 +269,23 @@ async function storeMessage(threadId: string, email: NormalizedEmail) {
       receivedAt: email.receivedAt,
     },
   })
+}
+
+async function loadRestaurantBlacklist(restaurantId: string): Promise<ExtraBlacklist> {
+  try {
+    const r = await prisma.restaurant.findUnique({
+      where: { id: restaurantId },
+      select: { blacklistAdditions: true },
+    })
+    const raw = r?.blacklistAdditions as { senders?: unknown; domains?: unknown } | null
+    if (!raw || typeof raw !== 'object') return { senders: [], domains: [] }
+    const senders = Array.isArray(raw.senders) ? raw.senders.filter((s): s is string => typeof s === 'string') : []
+    const domains = Array.isArray(raw.domains) ? raw.domains.filter((s): s is string => typeof s === 'string') : []
+    return { senders, domains }
+  } catch (err) {
+    logger.warn({ err, restaurantId }, 'failed to load restaurant blacklist, defaulting to empty')
+    return { senders: [], domains: [] }
+  }
 }
 
 async function logRejectedEmail(data: {

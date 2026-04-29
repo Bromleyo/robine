@@ -7,10 +7,11 @@ interface TopbarProps {
   subtitle?: string
   primaryLabel?: string
   primaryHref?: string
+  hidePrimary?: boolean
   children?: React.ReactNode
 }
 
-export default function Topbar({ title, subtitle, primaryLabel = 'Nouvelle demande', primaryHref = '/demandes/new', children }: TopbarProps) {
+export default function Topbar({ title, subtitle, primaryLabel = 'Nouvelle demande', primaryHref = '/demandes/new', hidePrimary = false, children }: TopbarProps) {
   return (
     <div style={{
       display: 'flex', alignItems: 'center', gap: 16,
@@ -49,19 +50,21 @@ export default function Topbar({ title, subtitle, primaryLabel = 'Nouvelle deman
       <NotificationBell />
 
       {/* CTA */}
-      <Link
-        href={primaryHref}
-        style={{
-          display: 'inline-flex', alignItems: 'center', gap: 6,
-          padding: '7px 12px', borderRadius: 'var(--r-sm)',
-          fontSize: 13, fontWeight: 500,
-          background: 'var(--accent)', color: '#fff',
-          textDecoration: 'none',
-        }}
-      >
-        <Icon name="plus" size={14} stroke={2.2} />
-        {primaryLabel}
-      </Link>
+      {!hidePrimary && (
+        <Link
+          href={primaryHref}
+          style={{
+            display: 'inline-flex', alignItems: 'center', gap: 6,
+            padding: '7px 12px', borderRadius: 'var(--r-sm)',
+            fontSize: 13, fontWeight: 500,
+            background: 'var(--accent)', color: '#fff',
+            textDecoration: 'none',
+          }}
+        >
+          <Icon name="plus" size={14} stroke={2.2} />
+          {primaryLabel}
+        </Link>
+      )}
     </div>
   )
 }

@@ -84,6 +84,7 @@ model Restaurant {
   graphSubscriptionExpiry DateTime?
   referenceSeq            Int       @default(0)
   allowedDomains          String[]  @default([])
+  blacklistAdditions      Json      @default("{\"senders\":[],\"domains\":[]}")
   createdAt               DateTime  @default(now())
   updatedAt               DateTime  @updatedAt
 
@@ -255,6 +256,9 @@ model Demande {
   confirmedAt         DateTime?
   annuleAt            DateTime?
   legacyReference     String?
+  archivedAt          DateTime?
+  archivedReason      String?
+  deletedAt           DateTime?
   createdAt           DateTime        @default(now())
   updatedAt           DateTime        @updatedAt
 
@@ -272,6 +276,8 @@ model Demande {
   @@index([restaurantId, dateEvenement])
   @@index([restaurantId, espaceId, dateEvenement])
   @@index([legacyReference])
+  @@index([restaurantId, deletedAt])
+  @@index([restaurantId, archivedAt])
   @@map("demandes")
 }
 

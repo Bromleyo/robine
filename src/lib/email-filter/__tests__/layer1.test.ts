@@ -111,3 +111,47 @@ describe('checkBlacklistedSender — patterns auto (BLACKLISTED_SENDER_PATTERNS)
     expect(checkBlacklistedSender(makeEmail({ from: { address: 'webmaster@company.fr', name: 'Co' } }))).toBeNull()
   })
 })
+
+describe('checkBlacklistedSender — extraBlacklist (dynamic per-restaurant)', () => {
+  it('rejects sender added to extra.senders avec rejectReason manual_blacklist', () => {
+    const msg = makeEmail({ from: { address: 'foo@autre-domaine.com', name: 'Foo' } })
+    const result = checkBlacklistedSender(msg, { senders: ['foo@autre-domaine.com'] })
+    expect(result).toMatchObject({ action: 'reject', rejectReason: 'manual_blacklist' })
+  })
+
+  it('rejects sender case-insensitively (extra senders sont lowercased en interne)', () => {
+    const msg = makeEmail({ from: { address: 'Foo@AUTRE-DOMAINE.com', name: 'Foo' } })
+    const result = checkBlacklistedSender(msg, { senders: ['foo@autre-domaine.com'] })
+    expect(result).toMatchObject({ action: 'reject', rejectReason: 'manual_blacklist' })
+  })
+
+  it('rejects domain match avec rejectReason manual_blacklist', () => {
+    const msg = makeEmail({ from: { address: 'random@spam-corp.example', name: 'Random' } })
+    const result = checkBlacklistedSender(msg, { domains: ['spam-corp.example'] })
+    expect(result).toMatchObject({ action: 'reject', rejectReason: 'manual_blacklist' })
+  })
+
+  it('rejects domain match case-insensitively', () => {
+    const msg = makeEmail({ from: { address: 'random@SPAM-Corp.Example', name: 'Random' } })
+    const result = checkBlacklistedSender(msg, { domains: ['spam-corp.example'] })
+    expect(result).toMatchObject({ action: 'reject', rejectReason: 'manual_blacklist' })
+  })
+
+  it('passes through when neither sender nor domain match', () => {
+    const msg = makeEmail({ from: { address: 'legit@client.com', name: 'Legit' } })
+    const result = checkBlacklistedSender(msg, { senders: ['someone@else.com'], domains: ['other.org'] })
+    expect(result).toBeNull()
+  })
+
+  it('falls back to static blacklist when extra is empty', () => {
+    const msg = makeEmail({ from: { address: 'jimmy.dubreuil@gmail.com', name: 'Jimmy' } })
+    const result = checkBlacklistedSender(msg, { senders: [], domains: [] })
+    expect(result).toMatchObject({ action: 'reject', rejectReason: 'test_email' })
+  })
+
+  it('extra blacklist takes precedence over static (manual_blacklist > test_email)', () => {
+    const msg = makeEmail({ from: { address: 'jimmy.dubreuil@gmail.com', name: 'Jimmy' } })
+    const result = checkBlacklistedSender(msg, { senders: ['jimmy.dubreuil@gmail.com'] })
+    expect(result).toMatchObject({ action: 'reject', rejectReason: 'manual_blacklist' })
+  })
+})

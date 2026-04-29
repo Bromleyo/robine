@@ -10,6 +10,7 @@ import NotesEditor from '@/components/detail/notes-editor'
 import AssigneeSelector from '@/components/detail/assignee-selector'
 import AttachmentsPanel from '@/components/detail/attachments-panel'
 import PrintTicketButton from '@/components/detail/print-ticket-button'
+import DemandeActions from '@/components/detail/demande-actions'
 import Icon from '@/components/ui/icon'
 
 const EVENT_LABEL: Record<string, string> = {
@@ -110,6 +111,10 @@ export default async function DemandePage({ params }: { params: Promise<{ id: st
 
   const allMessages = demande.threads.flatMap(t => t.messages)
 
+  const firstInMessage = demande.threads[0]?.messages.find(m => m.direction === 'IN') ?? null
+  const fromEmail = firstInMessage?.fromEmail ? firstInMessage.fromEmail.toLowerCase() : null
+  const fromDomain = fromEmail?.includes('@') ? (fromEmail.split('@')[1] ?? null) : null
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100%', overflow: 'hidden' }}>
 
@@ -194,6 +199,11 @@ export default async function DemandePage({ params }: { params: Promise<{ id: st
               assigneeNom={demande.assignee?.nom}
             />
           )}
+          <DemandeActions
+            demandeId={demande.id}
+            fromEmail={fromEmail}
+            fromDomain={fromDomain}
+          />
           <StatusSelector demandeId={demande.id} currentStatut={demande.statut} />
         </div>
       </div>

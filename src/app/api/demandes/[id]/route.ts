@@ -4,6 +4,7 @@ import { prisma } from '@/lib/db/prisma'
 import { fetchDemandeDetail } from '@/lib/db/demandes'
 import { PatchDemandeSchema } from '@/lib/validation/schemas'
 import { notifyRestaurant } from '@/lib/db/notifications'
+import { requireRole } from '@/lib/auth/require-role'
 
 export async function GET(
   _req: NextRequest,
@@ -104,4 +105,29 @@ export async function PATCH(
   }
 
   return NextResponse.json({ ok: true })
+}
+
+export async function DELETE(
+  _req: NextRequest,
+  { params }: { params: Promise<{ id: string }> },
+) {
+  const session = await auth()
+  const restaurantId = session?.user?.restaurantId
+  if (!restaurantId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+
+  const forbidden = requireRole(session?.user?.role, 'RESPONSABLE')
+  if (forbidden) return forbidden
+
+  const { id } = await params
+
+  // L'extension Prisma soft-delete filtre deletedAt:null, donc findFirst ne renvoie
+  // que les non-supprimés. Pour soft-delete on bypasse via updateMany scopé.
+  const result = await prisma.demande.updateMany({
+    where: { id, restaurantId, deletedAt: null },
+    data: { deletedAt: new Date() },
+  })
+  if (result.count === 0) {
+    return NextResponse.json({ error: 'Not found or already deleted' }, { status: 404 })
+  }
+  return NextResponse.json({ deleted: true })
 }
