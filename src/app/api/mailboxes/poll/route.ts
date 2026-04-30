@@ -3,7 +3,7 @@ import { auth } from '@/auth'
 import { prisma } from '@/lib/db/prisma'
 import { encryptToken, decryptToken } from '@/lib/crypto/token-cipher'
 import { processIncomingEmail } from '@/lib/email/process-incoming'
-import { htmlToText } from '@/lib/email/html-to-text'
+import { htmlToText, stripQuotedReply } from '@/lib/email/html-to-text'
 import { logger } from '@/lib/logger'
 
 async function refreshMicrosoftToken(refreshToken: string): Promise<{ access_token: string; expires_in: number }> {
@@ -58,7 +58,7 @@ function normalize(msg: MsMessage) {
     toRecipients: msg.toRecipients.map(r => r.emailAddress.address.toLowerCase()),
     ccRecipients: msg.ccRecipients.map(r => r.emailAddress.address.toLowerCase()),
     bodyHtml: isHtml ? msg.body.content : null,
-    bodyText: isHtml ? htmlToText(msg.body.content) : msg.body.content,
+    bodyText: stripQuotedReply(isHtml ? htmlToText(msg.body.content) : msg.body.content),
     receivedAt: new Date(msg.receivedDateTime),
     headers,
     inReplyTo: headers['in-reply-to'] ?? null,

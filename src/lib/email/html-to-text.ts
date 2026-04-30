@@ -22,18 +22,26 @@ export function htmlToText(html: string): string {
 }
 
 // Strips the quoted reply thread from an email body.
-// Cuts at the first separator line (---), > quote, or reply header (De : / From:).
+// Cuts at the first separator line (---), > quote, reply header (De : / From:),
+// or Gmail-style intro line ("Le … a écrit :" / "On … wrote:").
 export function stripQuotedReply(text: string): string {
   const lines = text.split('\n')
   let cutAt = lines.length
 
+  // Cut before an empty separator if present, otherwise at the line itself
+  const cutBefore = (j: number) => (j > 0 && lines[j - 1]!.trim() === '' ? j - 1 : j)
+
   for (let i = 0; i < lines.length; i++) {
-    const line = lines[i].trim()
+    const line = lines[i]!.trim()
     if (/^[-_]{5,}$/.test(line)) { cutAt = i; break }
     if (line.startsWith('>')) { cutAt = i; break }
-    if (/^(De|From|Envoyé|Sent|À|To)\s*:/i.test(line) && i > 0 && lines[i - 1].trim() === '') {
+    if (/^(De|From|Envoyé|Sent|À|To)\s*:/i.test(line) && i > 0 && lines[i - 1]!.trim() === '') {
       cutAt = i - 1; break
     }
+    // Gmail/Outlook FR: "Le 23 avr. 2026 à 15:15, John <john@x.com> a écrit :"
+    if (/^le\b.{1,300}\ba\s+[eé]crit\s*:/i.test(line)) { cutAt = cutBefore(i); break }
+    // Gmail EN: "On Mon, Apr 23, 2026 at 3:15 PM, John <john@x.com> wrote:"
+    if (/^on\b.{1,300}\bwrote\s*:/i.test(line)) { cutAt = cutBefore(i); break }
   }
 
   return lines.slice(0, cutAt).join('\n').trim()
