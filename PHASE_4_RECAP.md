@@ -75,12 +75,19 @@ Avant : chaque nouveau login (`info@le-robin.fr`, `lucia@…`) créait un *nouve
 
 ```
 Email → info@le-robin.fr
-    → Règle Outlook → forward vers event@le-robin.fr
-    → Webhook Microsoft Graph (temps réel)
+    → Webhook Microsoft Graph (souscription DIRECTE sur info@, en temps réel)
     → Filtre 3 couches (L1 expéditeur/domaine, L2 headers, L3 business signals)
     → ACCEPT → Demande créée + thread résilient (RFC 2822 fallbacks)
     → REJECT → Loggé systématiquement dans rejectedEmails (incl. LLM rejects)
 ```
+
+> 📌 **Correction d'architecture (vs PHASE_3_RECAP)** : la règle Outlook
+> `info@ → event@` mentionnée en phase 3 **n'est PAS dans le path actif**.
+> Le webhook Graph s'abonne directement à `info@le-robin.fr`. Pas de
+> forwarding intermédiaire. Vérifié en DB le 2026-04-30 : la mailbox
+> `info@le-robin.fr` (id `cmoem1rnj…`) est `actif=true` avec
+> `subscriptionId` valide ; aucune mailbox `event@` n'est référencée
+> côté `outlook_mailboxes` pour cmoecboxx.
 
 - Blacklists couche 1 durcies sur tous les patterns récurrents.
 - Threading résilient même sans `conversationId` Graph.
@@ -90,7 +97,7 @@ Email → info@le-robin.fr
 ### Tenant — un seul restaurant actif
 
 - `cmoecboxx` (Le Robin) — survivant de la consolidation
-- Mailbox `event@le-robin.fr` connectée et active
+- Mailbox `info@le-robin.fr` connectée et active (webhook direct)
 - Configuration IA (personnalisation, règles, crédits) en place
 
 ### SSO — auto-attach déployé
