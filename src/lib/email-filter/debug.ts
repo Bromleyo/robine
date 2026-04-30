@@ -2,7 +2,7 @@ import type { NormalizedEmail } from '../email/types'
 import type { FilterDecision } from './types'
 import { checkSpamHeaders } from './layer2-headers'
 import { checkBusinessSignals } from './layer3-business'
-import { PROSPECTION_PHRASES, EVENT_KEYWORDS } from './keywords'
+import { PROSPECTION_PHRASES_STRONG, PROSPECTION_PHRASES_WEAK, EVENT_KEYWORDS } from './keywords'
 import { PROSPECTION_DOMAINS } from './domains'
 
 export type DebugLayer1 =
@@ -83,7 +83,10 @@ export function filterEmailDebug(email: NormalizedEmail, mailboxEmail: string): 
     matchedMedium: EVENT_KEYWORDS.medium.filter(kw => searchText.includes(kw)),
     dateDetected: detectFutureDate(searchText),
     guestCount: detectGuestCount(searchText),
-    prospectionPhrase: PROSPECTION_PHRASES.find(p => searchText.includes(p)) ?? null,
+    prospectionPhrase:
+      PROSPECTION_PHRASES_STRONG.find(p => searchText.includes(p))
+      ?? PROSPECTION_PHRASES_WEAK.find(p => searchText.includes(p))
+      ?? null,
     blacklistedDomain: PROSPECTION_DOMAINS.includes(fromDomain) ? fromDomain : null,
   }
 

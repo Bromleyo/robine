@@ -1,7 +1,7 @@
 import type { NormalizedEmail } from '@/lib/email/types'
 import type { FilterDecision, RejectReason } from './types'
 import { PROSPECTION_DOMAINS } from './domains'
-import { PROSPECTION_PHRASES, EVENT_KEYWORDS } from './keywords'
+import { PROSPECTION_PHRASES_STRONG, PROSPECTION_PHRASES_WEAK, EVENT_KEYWORDS } from './keywords'
 
 // Empty — populate case-by-case when subject-based hard rejects are needed
 const SUBJECT_HARD_REJECT: Array<{ pattern: RegExp; rejectReason: RejectReason; details: string }> = []
@@ -41,39 +41,47 @@ export function checkBusinessSignals(message: NormalizedEmail, bodyText: string)
 
   const searchText = normalize(`${message.subject ?? ''} ${bodyText.slice(0, 2000)}`)
 
-  for (const phrase of PROSPECTION_PHRASES) {
-    if (searchText.includes(phrase)) {
-      const hasStrong = EVENT_KEYWORDS.strong.some(kw => searchText.includes(kw))
-      if (hasStrong) {
-        return {
-          action: 'send_to_llm',
-          reason: 'ambiguous: prospection phrase + strong event keyword',
-          softRejectReason: `prospection phrase matched: "${phrase}"`,
-        }
+  const matchedStrongProspection = PROSPECTION_PHRASES_STRONG.filter(p => searchText.includes(p))
+  const matchedWeakProspection = PROSPECTION_PHRASES_WEAK.filter(p => searchText.includes(p))
+  const matchedStrongEvent = EVENT_KEYWORDS.strong.filter(kw => searchText.includes(kw))
+  const matchedMediumEvent = EVENT_KEYWORDS.medium.filter(kw => searchText.includes(kw))
+  const hasEventKeyword = matchedStrongEvent.length > 0 || matchedMediumEvent.length > 0
+
+  // Cas 1 — STRONG prospection matchée
+  if (matchedStrongProspection.length > 0) {
+    if (hasEventKeyword) {
+      // Filet : un commercial peut camoufler son pitch derrière un mot événement.
+      return {
+        action: 'send_to_llm',
+        reason: 'ambiguous: strong prospection phrase + event keyword',
+        softRejectReason: `strong prospection phrase matched: "${matchedStrongProspection[0]}"`,
       }
-      const hasMedium = EVENT_KEYWORDS.medium.some(kw => searchText.includes(kw))
-      if (hasMedium) {
-        return {
-          action: 'send_to_llm',
-          reason: 'ambiguous: prospection phrase + medium event keyword',
-          softRejectReason: `prospection phrase matched: "${phrase}"`,
-        }
-      }
-      return { action: 'reject', rejectReason: 'prospection', details: phrase }
+    }
+    return { action: 'reject', rejectReason: 'prospection', details: matchedStrongProspection[0] }
+  }
+
+  // Cas 2 — 2+ WEAK seuls (sans event keyword) → LLM softReject
+  if (matchedWeakProspection.length >= 2 && !hasEventKeyword) {
+    return {
+      action: 'send_to_llm',
+      reason: 'multiple weak prospection phrases without event keyword',
+      softRejectReason: `weak prospection phrases matched: ${matchedWeakProspection.join(' | ')}`,
     }
   }
 
-  const matchedStrong = EVENT_KEYWORDS.strong.filter(kw => searchText.includes(kw))
-  if (matchedStrong.length > 0) {
-    return { action: 'accept_direct', reason: 'strong event keyword', matchedKeywords: matchedStrong }
+  // Cas 3 — 1 WEAK seul OU WEAK + event : continue scoring normal.
+  // WEAK + event → ACCEPT direct via le scoring ci-dessous (event wins).
+  // 1 WEAK seul sans event → fallback final send_to_llm.
+
+  if (matchedStrongEvent.length > 0) {
+    return { action: 'accept_direct', reason: 'strong event keyword', matchedKeywords: matchedStrongEvent }
   }
 
-  const matchedMedium = EVENT_KEYWORDS.medium.filter(kw => searchText.includes(kw))
-  if (matchedMedium.length >= 2) {
-    return { action: 'accept_direct', reason: '2+ medium event keywords', matchedKeywords: matchedMedium }
+  if (matchedMediumEvent.length >= 2) {
+    return { action: 'accept_direct', reason: '2+ medium event keywords', matchedKeywords: matchedMediumEvent }
   }
-  if (matchedMedium.length === 1 && (hasFutureDate(searchText) || hasGuestCount(searchText))) {
-    return { action: 'accept_direct', reason: '1 medium keyword + date or guest count', matchedKeywords: matchedMedium }
+  if (matchedMediumEvent.length === 1 && (hasFutureDate(searchText) || hasGuestCount(searchText))) {
+    return { action: 'accept_direct', reason: '1 medium keyword + date or guest count', matchedKeywords: matchedMediumEvent }
   }
 
   return { action: 'send_to_llm', reason: 'no strong signal, LLM decides' }

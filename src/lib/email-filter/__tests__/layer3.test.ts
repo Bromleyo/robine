@@ -43,18 +43,16 @@ describe('checkBusinessSignals — blacklisted domains', () => {
 })
 
 describe('checkBusinessSignals — prospection phrases', () => {
-  it('rejects classic cold email', () => {
-    const body = 'Je me permets de vous contacter concernant notre offre logicielle.'
-    expect(checkBusinessSignals(makeEmail('Notre solution'), body)).toMatchObject({ action: 'reject', rejectReason: 'prospection' })
+  it('rejects STRONG prospection phrase alone (cold sales pitch)', () => {
+    // Remplace l'ancien test "cold email" qui utilisait une WEAK seule.
+    // Garde la couverture du chemin REJECT 'prospection' via une STRONG.
+    const body = "Notre solution permet d'augmenter votre chiffre d'affaires de 30%."
+    expect(checkBusinessSignals(makeEmail('Proposition'), body)).toMatchObject({ action: 'reject', rejectReason: 'prospection' })
   })
 
-  it('rejects "sauf erreur de ma part" relance', () => {
-    const body = "Sauf erreur de ma part, vous n'avez pas répondu à mon dernier message."
-    expect(checkBusinessSignals(makeEmail('Relance'), body)).toMatchObject({ action: 'reject', rejectReason: 'prospection' })
-  })
-
-  it('sends to LLM when prospection phrase + strong event keyword (soft reject)', () => {
-    const body = 'Je me permets de vous contacter pour organiser un séminaire privatisé chez vous.'
+  it('sends to LLM when STRONG prospection phrase + strong event keyword (soft reject)', () => {
+    // STRONG + event → LLM (le commercial peut camoufler son pitch derrière "séminaire")
+    const body = "Notre solution permet d'organiser des séminaires sur mesure pour votre équipe."
     expect(checkBusinessSignals(makeEmail('Séminaire'), body)).toMatchObject({ action: 'send_to_llm', softRejectReason: expect.any(String) })
   })
 
@@ -129,5 +127,70 @@ describe('checkBusinessSignals — ambiguous (send_to_llm)', () => {
     const body = 'Nous voudrions organiser quelque chose de bien.'
     const result = checkBusinessSignals(makeEmail('Question'), body)
     expect(result.action).toBe('send_to_llm')
+  })
+})
+
+// ─── Refactor STRONG/WEAK — cas A à I ───────────────────────────────────────
+
+describe('checkBusinessSignals — refactor STRONG/WEAK (cas A à I)', () => {
+  it('A — Andréa Barza : 1 WEAK + medium event + future date → ACCEPT', () => {
+    // Vrai client, formule polie + signal métier explicite. Régression interdite.
+    const body = "Bonjour, je me permets de vous contacter pour organiser l'anniversaire de mes 30 ans avec 25 personnes le 15 juin 2026."
+    const result = checkBusinessSignals(makeEmail('Anniversaire'), body)
+    expect(result.action).toBe('accept_direct')
+  })
+
+  it('B — DR-0052 mariage privatisation → ACCEPT (régression interdite)', () => {
+    // Strong event keywords purs, aucune phrase prospection.
+    const result = checkBusinessSignals(makeEmail('Demande de privatisation pour mariage'), '')
+    expect(result.action).toBe('accept_direct')
+  })
+
+  it('C — DR-0051 anniversaire 50 personnes → ACCEPT (régression interdite)', () => {
+    // 1 medium event ("anniversaire") + guest count ≥ 10.
+    const body = 'Nous souhaitons organiser un anniversaire pour 50 personnes.'
+    const result = checkBusinessSignals(makeEmail('Anniversaire'), body)
+    expect(result.action).toBe('accept_direct')
+  })
+
+  it('D — Marketing pur 2 STRONG sans event → REJECT prospection', () => {
+    const body = "Notre solution permet de booster vos ventes et d'optimiser votre gestion."
+    expect(checkBusinessSignals(makeEmail('Proposition'), body)).toMatchObject({ action: 'reject', rejectReason: 'prospection' })
+  })
+
+  it('E — 2 WEAK sans event → LLM softReject "multiple weak prospection phrases"', () => {
+    const body = "Je me permets de vous contacter. Je reviens vers vous suite à mon précédent message."
+    const result = checkBusinessSignals(makeEmail('Suivi'), body)
+    expect(result).toMatchObject({ action: 'send_to_llm', softRejectReason: expect.stringContaining('weak prospection') })
+  })
+
+  it('F — WEAK + STRONG → REJECT (STRONG gagne)', () => {
+    const body = "Je me permets de vous contacter. Notre solution permet d'optimiser votre gestion."
+    expect(checkBusinessSignals(makeEmail('Proposition'), body)).toMatchObject({ action: 'reject', rejectReason: 'prospection' })
+  })
+
+  it('G — 1 WEAK seul sans event keyword → send_to_llm (LLM tranche)', () => {
+    // Validé Point 1 : pas de REJECT par défaut, on délègue au LLM.
+    const body = 'Bonjour, je me permets de vous contacter au sujet de votre établissement.'
+    const result = checkBusinessSignals(makeEmail('Question'), body)
+    expect(result.action).toBe('send_to_llm')
+    // Pas de softReject — c'est juste le fallback "no strong signal"
+    if (result.action === 'send_to_llm') {
+      expect(result.softRejectReason).toBeUndefined()
+    }
+  })
+
+  it('H — "rendez-vous téléphonique" (WEAK) + "mariage" (strong event) → ACCEPT', () => {
+    // Event keyword winner — le client peut demander un appel pour son mariage.
+    const body = "J'aimerais avoir un rendez-vous téléphonique pour discuter de notre mariage en juillet."
+    const result = checkBusinessSignals(makeEmail('Mariage'), body)
+    expect(result.action).toBe('accept_direct')
+  })
+
+  it('I — "sauf erreur de ma part" supprimée + anniversaire 30 personnes → ACCEPT', () => {
+    // La phrase #20 supprimée n'interfère plus — le scoring event prime.
+    const body = "Sauf erreur de ma part, vous proposez la privatisation pour 30 personnes le 12 mai 2026 ?"
+    const result = checkBusinessSignals(makeEmail('Anniversaire'), body)
+    expect(result.action).toBe('accept_direct')
   })
 })
