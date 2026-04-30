@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { auth } from '@/auth'
 import { prisma } from '@/lib/db/prisma'
 import { sendGraphReply } from '@/lib/graph/messages'
+import { resolveTargetMailbox } from '@/lib/graph/webhook-helpers'
 
 export async function POST(
   req: NextRequest,
@@ -46,9 +47,14 @@ export async function POST(
 
   const mailbox = await prisma.outlookMailbox.findFirst({
     where: { restaurantId: session.user.restaurantId, actif: true },
-    select: { email: true },
+    select: { email: true, sharedMailboxEmail: true },
   })
   if (!mailbox) return NextResponse.json({ error: 'No mailbox configured' }, { status: 400 })
+
+  // Cible Graph = sharedMailboxEmail si la mailbox est une boîte partagée,
+  // sinon l'email du compte. Le microsoftGraphId reçu est dans cette cible-là
+  // (cf. PR1ter Fix #1 côté webhook).
+  const targetMailbox = resolveTargetMailbox(mailbox)
 
   if (replyText.length > 50000) return NextResponse.json({ error: 'Message trop long' }, { status: 400 })
 
@@ -58,7 +64,7 @@ export async function POST(
     .map(p => `<p>${escHtml(p).replace(/\n/g, '<br/>')}</p>`)
     .join('')
 
-  const internetMessageId = await sendGraphReply(mailbox.email, lastIn.microsoftGraphId, htmlBody, attachments)
+  const internetMessageId = await sendGraphReply(targetMailbox, lastIn.microsoftGraphId, htmlBody, attachments)
 
   const now = new Date()
   await prisma.message.create({
@@ -66,7 +72,7 @@ export async function POST(
       threadId: thread.id,
       messageIdHeader: internetMessageId,
       direction: 'OUT',
-      fromEmail: mailbox.email,
+      fromEmail: targetMailbox,
       toEmails: [demande.contact.email],
       bodyHtml: htmlBody,
       bodyText: replyText,
