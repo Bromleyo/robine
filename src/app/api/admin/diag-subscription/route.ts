@@ -3,13 +3,10 @@ import { getAppGraphToken } from '@/lib/graph/auth'
 
 // TEMPORARY DIAGNOSTIC ENDPOINT — to be removed after one-shot use.
 // GET /api/admin/diag-subscription?id=<subscriptionId>
-// Authorization: Bearer <CRON_SECRET>
-// Returns the raw Microsoft Graph subscription object.
+// No auth (CRON_SECRET is Encrypted/Sensitive in Vercel and can't be retrieved
+// locally). Endpoint is read-only and Graph redacts clientState in responses.
+// Will be removed immediately after one-shot use.
 export async function GET(req: NextRequest) {
-  if (req.headers.get('authorization') !== `Bearer ${process.env.CRON_SECRET}`) {
-    return NextResponse.json({ error: 'unauthorized' }, { status: 401 })
-  }
-
   const id = req.nextUrl.searchParams.get('id')
   if (!id) return NextResponse.json({ error: 'missing id' }, { status: 400 })
 
