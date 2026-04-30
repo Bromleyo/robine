@@ -154,6 +154,9 @@ export default async function DemandesPage({
                     {d.contact.societe && (
                       <div style={{ fontSize: 11.5, color: 'var(--ink-500)' }}>{d.contact.societe}</div>
                     )}
+                    <div style={{ fontSize: 11.5, color: 'var(--ink-400)', fontFamily: 'var(--font-mono, monospace)' }}>
+                      {d.contact.email}
+                    </div>
                   </Link>
                 </td>
 
