@@ -6,20 +6,24 @@ export async function createMailSubscription(
   mailboxEmail: string,
   notificationUrl: string,
   clientState: string,
+  lifecycleNotificationUrl?: string,
 ): Promise<{ id: string; expirationDateTime: string }> {
   const token = await getAppGraphToken()
   const expirationDateTime = new Date(Date.now() + 3 * 24 * 60 * 60 * 1000).toISOString()
 
+  const body: Record<string, unknown> = {
+    changeType: 'created',
+    notificationUrl,
+    resource: `users/${mailboxEmail}/mailFolders/inbox/messages`,
+    expirationDateTime,
+    clientState,
+  }
+  if (lifecycleNotificationUrl) body.lifecycleNotificationUrl = lifecycleNotificationUrl
+
   const res = await fetch(`${GRAPH_BASE}/subscriptions`, {
     method: 'POST',
     headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      changeType: 'created',
-      notificationUrl,
-      resource: `users/${mailboxEmail}/mailFolders/inbox/messages`,
-      expirationDateTime,
-      clientState,
-    }),
+    body: JSON.stringify(body),
   })
 
   if (!res.ok) throw new Error(`Subscription creation failed (${res.status}): ${await res.text()}`)
@@ -32,22 +36,26 @@ export async function createMailSubscriptionDelegated(
   notificationUrl: string,
   clientState: string,
   targetEmail?: string,
+  lifecycleNotificationUrl?: string,
 ): Promise<{ id: string; expirationDateTime: string }> {
   const expirationDateTime = new Date(Date.now() + 3 * 24 * 60 * 60 * 1000).toISOString()
   const resource = targetEmail
     ? `users/${targetEmail}/mailFolders/inbox/messages`
     : 'me/mailFolders/inbox/messages'
 
+  const body: Record<string, unknown> = {
+    changeType: 'created',
+    notificationUrl,
+    resource,
+    expirationDateTime,
+    clientState,
+  }
+  if (lifecycleNotificationUrl) body.lifecycleNotificationUrl = lifecycleNotificationUrl
+
   const res = await fetch(`${GRAPH_BASE}/subscriptions`, {
     method: 'POST',
     headers: { Authorization: `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      changeType: 'created',
-      notificationUrl,
-      resource,
-      expirationDateTime,
-      clientState,
-    }),
+    body: JSON.stringify(body),
   })
 
   if (!res.ok) throw new Error(`Subscription creation failed (${res.status}): ${await res.text()}`)

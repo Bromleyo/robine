@@ -3,6 +3,12 @@ import { prisma } from '@/lib/db/prisma'
 import { fetchGraphMessage, graphMessageToNormalized } from '@/lib/graph/messages'
 import { processIncomingEmail } from '@/lib/email/process-incoming'
 import { logger } from '@/lib/logger'
+import {
+  isLifecycleNotification,
+  resolveTargetMailbox,
+  type GraphLifecycleNotification,
+  type GraphRegularNotification,
+} from '@/lib/graph/webhook-helpers'
 
 const CLIENT_STATE = process.env.MS_GRAPH_WEBHOOK_SECRET ?? ''
 
@@ -15,13 +21,8 @@ export async function GET(req: NextRequest) {
   })
 }
 
-interface GraphNotification {
-  value: {
-    subscriptionId: string
-    clientState: string
-    changeType: string
-    resourceData: { id: string }
-  }[]
+interface GraphNotificationBody {
+  value: (GraphRegularNotification | GraphLifecycleNotification)[]
 }
 
 export async function POST(req: NextRequest) {
@@ -33,11 +34,15 @@ export async function POST(req: NextRequest) {
     })
   }
 
-  const body = await req.json() as GraphNotification
+  const body = await req.json() as GraphNotificationBody
 
   for (const notif of body.value ?? []) {
     try {
-      await processNotification(notif)
+      if (isLifecycleNotification(notif)) {
+        await processLifecycleNotification(notif)
+      } else {
+        await processNotification(notif)
+      }
     } catch (err) {
       logger.error({ err }, 'webhook/graph notification error')
     }
@@ -46,7 +51,37 @@ export async function POST(req: NextRequest) {
   return new NextResponse(null, { status: 202 })
 }
 
-async function processNotification(notif: GraphNotification['value'][number]) {
+async function processLifecycleNotification(notif: GraphLifecycleNotification) {
+  // Validate clientState as defense-in-depth (Microsoft includes it on lifecycle notifs too)
+  if (notif.clientState && notif.clientState !== CLIENT_STATE) {
+    logger.warn({ subscriptionId: notif.subscriptionId, lifecycleEvent: notif.lifecycleEvent }, 'webhook/graph lifecycle clientState mismatch')
+    return
+  }
+
+  logger.info({
+    subscriptionId: notif.subscriptionId,
+    lifecycleEvent: notif.lifecycleEvent,
+    expiry: notif.subscriptionExpirationDateTime,
+  }, 'webhook/graph lifecycle event received')
+
+  if (notif.lifecycleEvent === 'subscriptionRemoved') {
+    // Microsoft a supprimé la sub : on déconnecte côté DB pour que le cron
+    // polling (Fix #2) continue à fetcher les emails et que l'utilisateur
+    // puisse recréer manuellement la sub via "Activer Webhook".
+    const updated = await prisma.outlookMailbox.updateMany({
+      where: { subscriptionId: notif.subscriptionId },
+      data: { subscriptionId: null, subscriptionExpiry: null },
+    })
+    logger.info({ subscriptionId: notif.subscriptionId, rows: updated.count }, 'webhook/graph subscriptionRemoved → cleared DB')
+  }
+
+  // 'missed' et 'reauthorizationRequired' : on log seulement.
+  // missed = le cron polling ramassera les emails manqués (filet de sécurité).
+  // reauthorizationRequired = on n'utilise pas de delegated tokens pour la sub
+  // applicative principale, donc rare. À traiter manuellement si ça arrive.
+}
+
+async function processNotification(notif: GraphRegularNotification) {
   logger.debug({ clientStateMatch: notif.clientState === CLIENT_STATE }, 'webhook clientState check')
   if (notif.clientState !== CLIENT_STATE) return
 
@@ -68,11 +103,14 @@ async function processNotification(notif: GraphNotification['value'][number]) {
   try {
     const mailbox = await prisma.outlookMailbox.findFirst({
       where: { subscriptionId: notif.subscriptionId },
-      select: { id: true, email: true, restaurantId: true },
+      select: { id: true, email: true, sharedMailboxEmail: true, restaurantId: true },
     })
     if (!mailbox) return
 
-    const graphMsg = await fetchGraphMessage(mailbox.email, messageId)
+    // La subscription Graph peut cibler la sharedMailboxEmail (boîte partagée)
+    // au lieu de email (compte utilisateur). Fetch contre la cible réelle de la subscription.
+    const targetMailbox = resolveTargetMailbox(mailbox)
+    const graphMsg = await fetchGraphMessage(targetMailbox, messageId)
     const email = graphMessageToNormalized(graphMsg)
     await processIncomingEmail(email, mailbox)
   } catch (err) {

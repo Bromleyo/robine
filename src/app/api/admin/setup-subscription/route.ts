@@ -23,7 +23,9 @@ export async function POST(_req: NextRequest) {
   const clientState = process.env.MS_GRAPH_WEBHOOK_SECRET ?? ''
 
   try {
-    const subscription = await createMailSubscription(mailboxEmail, notificationUrl, clientState)
+    // Le lifecycleNotificationUrl pointe sur le même endpoint — le handler
+    // détecte les notifications de cycle de vie via le champ `lifecycleEvent`.
+    const subscription = await createMailSubscription(mailboxEmail, notificationUrl, clientState, notificationUrl)
 
     await prisma.outlookMailbox.upsert({
       where: { restaurantId_email: { restaurantId: session.user.restaurantId, email: mailboxEmail } },

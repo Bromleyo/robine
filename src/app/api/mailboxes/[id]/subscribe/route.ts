@@ -27,7 +27,8 @@ export async function POST(
 
   let subscription: { id: string; expirationDateTime: string }
   try {
-    subscription = await createMailSubscription(targetEmail, notificationUrl, clientState)
+    // lifecycleNotificationUrl = même endpoint, distingué via le champ `lifecycleEvent` du payload.
+    subscription = await createMailSubscription(targetEmail, notificationUrl, clientState, notificationUrl)
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err)
     return NextResponse.json({ error: msg }, { status: 500 })

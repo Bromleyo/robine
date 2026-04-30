@@ -92,8 +92,12 @@ export async function GET(req: NextRequest) {
   const authError = verifyCronRequest(req)
   if (authError) return authError
 
+  // Volontairement, on poll AUSSI les mailboxes avec subscriptionId : ça fait
+  // filet de sécurité si le webhook Graph rate une notification. Le check
+  // d'idempotence dans process-incoming.ts (microsoftGraphId déjà en DB)
+  // garantit qu'aucun doublon n'est créé.
   const mailboxes = await prisma.outlookMailbox.findMany({
-    where: { actif: true, msRefreshToken: { not: null }, subscriptionId: null },
+    where: { actif: true, msRefreshToken: { not: null } },
     select: {
       id: true,
       email: true,

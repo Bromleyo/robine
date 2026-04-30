@@ -71,23 +71,32 @@ Avant : chaque nouveau login (`info@le-robin.fr`, `lucia@…`) créait un *nouve
 
 ## Situation actuelle
 
-### Pipeline email — pleinement opérationnel
+### Pipeline email — architecture confirmée 2026-04-30
 
 ```
-Email → info@le-robin.fr
-    → Webhook Microsoft Graph (souscription DIRECTE sur info@, en temps réel)
-    → Filtre 3 couches (L1 expéditeur/domaine, L2 headers, L3 business signals)
-    → ACCEPT → Demande créée + thread résilient (RFC 2822 fallbacks)
-    → REJECT → Loggé systématiquement dans rejectedEmails (incl. LLM rejects)
+Email → info@le-robin.fr (inbox visible OWA)
+    → Forward Outlook info@ → event@le-robin.fr
+    → Subscription Graph sur users/event@le-robin.fr/mailFolders/inbox/messages
+    → POST /api/webhooks/graph (notificationUrl Vercel prod)
+    → Handler : prisma.outlookMailbox.findFirst({ where: { subscriptionId } })
+              → row { email: "info@le-robin.fr", sharedMailboxEmail: "event@le-robin.fr" }
+    → fetchGraphMessage(mailbox.sharedMailboxEmail ?? mailbox.email, messageId)
+      ← FIX PR1ter : auparavant le code passait mailbox.email seul → 404 systématique
+    → processIncomingEmail → Filtre 3 couches → ACCEPT/REJECT/LLM
+    → Demande créée OU rejected_emails loggé
 ```
 
-> 📌 **Correction d'architecture (vs PHASE_3_RECAP)** : la règle Outlook
-> `info@ → event@` mentionnée en phase 3 **n'est PAS dans le path actif**.
-> Le webhook Graph s'abonne directement à `info@le-robin.fr`. Pas de
-> forwarding intermédiaire. Vérifié en DB le 2026-04-30 : la mailbox
-> `info@le-robin.fr` (id `cmoem1rnj…`) est `actif=true` avec
-> `subscriptionId` valide ; aucune mailbox `event@` n'est référencée
-> côté `outlook_mailboxes` pour cmoecboxx.
+> 📌 **Note historique — correction de l'erreur PHASE_4 v1** : une première
+> version de ce RECAP affirmait que le webhook s'abonnait directement à
+> `info@`. C'était faux. La subscription Microsoft cible
+> `users/event@le-robin.fr/mailFolders/inbox/messages` (vérifié via
+> `GET /v1.0/subscriptions/{id}` le 2026-04-30 : champ `resource`
+> littéral). La row DB pour cette subscription stocke
+> `email = info@le-robin.fr` (compte utilisateur) ET
+> `sharedMailboxEmail = event@le-robin.fr` (boîte partagée cible). Le
+> handler webhook DOIT utiliser `sharedMailboxEmail` pour fetcher le
+> message via Graph, sinon Microsoft renvoie un 404
+> `ErrorInvalidMailboxItemId` (cf. PR1ter).
 
 - Blacklists couche 1 durcies sur tous les patterns récurrents.
 - Threading résilient même sans `conversationId` Graph.
@@ -97,7 +106,8 @@ Email → info@le-robin.fr
 ### Tenant — un seul restaurant actif
 
 - `cmoecboxx` (Le Robin) — survivant de la consolidation
-- Mailbox `info@le-robin.fr` connectée et active (webhook direct)
+- Mailbox row `info@le-robin.fr` (compte) + `sharedMailboxEmail event@le-robin.fr` (boîte partagée)
+- Subscription Graph `f67bdbb0-…` actif jusqu'au 2026-05-03 09:53 UTC
 - Configuration IA (personnalisation, règles, crédits) en place
 
 ### SSO — auto-attach déployé
