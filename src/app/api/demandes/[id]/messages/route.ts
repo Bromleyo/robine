@@ -3,6 +3,8 @@ import { auth } from '@/auth'
 import { prisma } from '@/lib/db/prisma'
 import { sendGraphReply } from '@/lib/graph/messages'
 import { resolveTargetMailbox } from '@/lib/graph/webhook-helpers'
+import { GraphRequestError, categorizeGraphError } from '@/lib/graph/errors'
+import { logger } from '@/lib/logger'
 
 export async function POST(
   req: NextRequest,
@@ -64,7 +66,29 @@ export async function POST(
     .map(p => `<p>${escHtml(p).replace(/\n/g, '<br/>')}</p>`)
     .join('')
 
-  const internetMessageId = await sendGraphReply(targetMailbox, lastIn.microsoftGraphId, htmlBody, attachments)
+  let internetMessageId: string
+  try {
+    internetMessageId = await sendGraphReply(targetMailbox, lastIn.microsoftGraphId, htmlBody, attachments)
+  } catch (err) {
+    if (err instanceof GraphRequestError) {
+      const cat = categorizeGraphError(err)
+      logger.error({
+        kind: cat.kind,
+        graphCode: err.graphCode,
+        graphMessage: err.graphMessage,
+        graphStatus: err.status,
+        operation: err.operation,
+        mailboxEmail: err.mailboxEmail,
+        graphMessageId: err.graphMessageId,
+        demandeId: id,
+      }, cat.kind)
+      return NextResponse.json(
+        { error: cat.code, status: err.status, hint: cat.hint },
+        { status: cat.httpStatus },
+      )
+    }
+    throw err
+  }
 
   const now = new Date()
   await prisma.message.create({

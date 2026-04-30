@@ -1,4 +1,6 @@
 import { getAppGraphToken } from './auth'
+import { GraphRequestError, parseGraphErrorBody } from './errors'
+import { logger } from '../logger'
 import type { NormalizedEmail } from '@/lib/email/types'
 import { htmlToText, stripQuotedReply } from '@/lib/email/html-to-text'
 
@@ -49,6 +51,32 @@ const SELECT_FIELDS = [
 
 const MAX_ATTACHMENT_BYTES = 30 * 1024 * 1024
 
+async function throwStructuredGraphError(
+  res: Response,
+  operation: 'createReply' | 'patchDraft' | 'sendDraft',
+  ctx: { mailboxEmail: string; graphMessageId: string | null },
+): Promise<never> {
+  const rawBody = await res.text()
+  const { code, message } = parseGraphErrorBody(rawBody)
+  logger.error({
+    operation,
+    status: res.status,
+    graphCode: code,
+    graphMessage: message,
+    mailboxEmail: ctx.mailboxEmail,
+    graphMessageId: ctx.graphMessageId,
+    rawBody: rawBody.slice(0, 500),
+  }, '[graph] request failed')
+  throw new GraphRequestError({
+    status: res.status,
+    graphCode: code,
+    graphMessage: message,
+    mailboxEmail: ctx.mailboxEmail,
+    graphMessageId: ctx.graphMessageId,
+    operation,
+  })
+}
+
 export async function sendGraphReply(
   mailboxEmail: string,
   graphMessageId: string,
@@ -63,7 +91,7 @@ export async function sendGraphReply(
     headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
     body: JSON.stringify({}),
   })
-  if (!createRes.ok) throw new Error(`createReply failed (${createRes.status}): ${await createRes.text()}`)
+  if (!createRes.ok) await throwStructuredGraphError(createRes, 'createReply', { mailboxEmail, graphMessageId })
   const draft = await createRes.json() as { id: string; internetMessageId: string }
 
   const patchRes = await fetch(`${base}/${draft.id}`, {
@@ -71,7 +99,7 @@ export async function sendGraphReply(
     headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
     body: JSON.stringify({ body: { contentType: 'html', content: htmlBody } }),
   })
-  if (!patchRes.ok) throw new Error(`patch draft failed (${patchRes.status}): ${await patchRes.text()}`)
+  if (!patchRes.ok) await throwStructuredGraphError(patchRes, 'patchDraft', { mailboxEmail, graphMessageId: draft.id })
 
   if (attachments && attachments.length > 0) {
     const fetched: { name: string; bytes: ArrayBuffer }[] = []
@@ -107,7 +135,7 @@ export async function sendGraphReply(
     method: 'POST',
     headers: { Authorization: `Bearer ${token}` },
   })
-  if (!sendRes.ok) throw new Error(`send failed (${sendRes.status}): ${await sendRes.text()}`)
+  if (!sendRes.ok) await throwStructuredGraphError(sendRes, 'sendDraft', { mailboxEmail, graphMessageId: draft.id })
 
   return draft.internetMessageId
 }

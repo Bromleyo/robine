@@ -23,6 +23,7 @@ import { POST } from './route'
 import { auth } from '@/auth'
 import { prisma } from '@/lib/db/prisma'
 import { sendGraphReply } from '@/lib/graph/messages'
+import { GraphRequestError } from '@/lib/graph/errors'
 import { NextRequest } from 'next/server'
 
 const mauth = vi.mocked(auth)
@@ -102,5 +103,99 @@ describe('POST /api/demandes/[id]/messages — fix sharedMailboxEmail (Bug 1)', 
         }),
       }),
     )
+  })
+})
+
+// ─── Logging Graph (Bug 1 follow-up) ─────────────────────────────────────────
+
+describe('POST /api/demandes/[id]/messages — error handling Graph (logging)', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    mauth.mockResolvedValue({ user: { restaurantId: RESTAURANT_ID } } as never)
+    mp.demande.findFirst.mockResolvedValue({
+      id: 'd1',
+      contact: { email: 'client@example.com' },
+      threads: [{
+        id: 'thread-1',
+        messages: [{ microsoftGraphId: 'graph-id-123' }],
+      }],
+    } as never)
+    mp.outlookMailbox.findFirst.mockResolvedValue({
+      email: 'info@le-robin.fr',
+      sharedMailboxEmail: 'event@le-robin.fr',
+    } as never)
+    mp.message.create.mockResolvedValue({} as never)
+    mp.demande.update.mockResolvedValue({} as never)
+  })
+
+  it('Graph 403 ErrorAccessDenied → 502 + payload graph_permission_missing', async () => {
+    msend.mockRejectedValue(
+      new GraphRequestError({
+        status: 403,
+        graphCode: 'ErrorAccessDenied',
+        graphMessage: 'Access is denied. Check credentials and try again.',
+        mailboxEmail: 'event@le-robin.fr',
+        graphMessageId: 'graph-id-123',
+        operation: 'createReply',
+      }),
+    )
+
+    const res = await POST(makeRequest({ body: 'Bonjour' }), { params: params() })
+
+    expect(res.status).toBe(502)
+    const body = await res.json() as { error: string; status: number; hint: string }
+    expect(body.error).toBe('graph_permission_missing')
+    expect(body.status).toBe(403)
+    expect(body.hint).toMatch(/Azure AD/i)
+    expect(mp.message.create).not.toHaveBeenCalled()
+    expect(mp.demande.update).not.toHaveBeenCalled()
+  })
+
+  it('Graph 404 ErrorItemNotFound → 502 + payload graph_message_not_found', async () => {
+    msend.mockRejectedValue(
+      new GraphRequestError({
+        status: 404,
+        graphCode: 'ErrorItemNotFound',
+        graphMessage: 'The specified object was not found in the store.',
+        mailboxEmail: 'event@le-robin.fr',
+        graphMessageId: 'graph-id-123',
+        operation: 'createReply',
+      }),
+    )
+
+    const res = await POST(makeRequest({ body: 'Bonjour' }), { params: params() })
+
+    expect(res.status).toBe(502)
+    const body = await res.json() as { error: string; status: number }
+    expect(body.error).toBe('graph_message_not_found')
+    expect(body.status).toBe(404)
+  })
+
+  it('Graph autre erreur (500) → 502 + payload graph_error', async () => {
+    msend.mockRejectedValue(
+      new GraphRequestError({
+        status: 500,
+        graphCode: 'InternalServerError',
+        graphMessage: 'Mailbox database is offline.',
+        mailboxEmail: 'event@le-robin.fr',
+        graphMessageId: 'graph-id-123',
+        operation: 'sendDraft',
+      }),
+    )
+
+    const res = await POST(makeRequest({ body: 'Bonjour' }), { params: params() })
+
+    expect(res.status).toBe(502)
+    const body = await res.json() as { error: string; status: number }
+    expect(body.error).toBe('graph_error')
+    expect(body.status).toBe(500)
+  })
+
+  it('Erreur non-Graph re-thrown (pas catché par le handler)', async () => {
+    msend.mockRejectedValue(new Error('Unexpected DB failure'))
+
+    await expect(
+      POST(makeRequest({ body: 'Bonjour' }), { params: params() }),
+    ).rejects.toThrow(/Unexpected DB failure/)
   })
 })
