@@ -1,10 +1,21 @@
 'use client'
 
 import Link from 'next/link'
-import type { DemandeEnriched } from '@/types/domain'
+import type { DemandeEnriched, StatutDemande } from '@/types/domain'
 import Icon from '@/components/ui/icon'
 
 const CHANNEL_ICON = { EMAIL: 'mail', FORMULAIRE: 'form', TELEPHONE: 'phone' } as const
+
+// PR2 — couleur pastille = couleur de la colonne kanban du statut courant
+// (cohérence visuelle, aucune nouvelle couleur introduite).
+const UNREAD_DOT_COLOR: Record<StatutDemande, string> = {
+  NOUVELLE:       '#6366F1',
+  EN_COURS:       '#F59E0B',
+  ATTENTE_CLIENT: '#9F1239',
+  CONFIRMEE:      '#10B981',
+  ANNULEE:        '#9CA3AF',
+  PERDUE:         '#9F1239',
+}
 
 const EVENT_LABEL: Record<string, string> = {
   MARIAGE: 'Mariage', DINER_ENTREPRISE: "Dîner d'entreprise", ANNIVERSAIRE: 'Anniversaire',
@@ -43,10 +54,24 @@ interface Props {
 }
 
 export default function DemandeCard({ demande, focused = false, dense = false, onClick }: Props) {
-  const { contact, urgenceLevel, origine, typeEvenement, nbInvites, dateEvenement, conflitDetecte, createdAt } = demande
+  const { contact, urgenceLevel, origine, typeEvenement, nbInvites, dateEvenement, conflitDetecte, createdAt, statut, hasUnread } = demande
   const days = agingDays(createdAt)
   const tagColor = typeEvenement ? (TAG_COLOR[typeEvenement] ?? TAG_COLOR.AUTRE) : null
   const avatarBg = contact.societe ? '#8B5CF6' : '#0EA5E9'
+  const unreadDotColor = UNREAD_DOT_COLOR[statut] ?? '#9F1239'
+
+  // PR2 — pastille "nouveau message" : point coloré à côté de l'icône.
+  const UnreadDot = hasUnread ? (
+    <span
+      aria-label="Nouveau message"
+      title="Nouveau message"
+      style={{
+        width: 7, height: 7, borderRadius: '50%',
+        background: unreadDotColor, display: 'inline-block', flexShrink: 0,
+        boxShadow: '0 0 0 1.5px var(--surface)',
+      }}
+    />
+  ) : null
 
   /* ── Dense variant ── */
   const denseContent = (
@@ -67,6 +92,7 @@ export default function DemandeCard({ demande, focused = false, dense = false, o
             borderRadius: 4, background: tagColor.bg, color: tagColor.color, flexShrink: 0,
           }}>{EVENT_LABEL[typeEvenement] ?? typeEvenement}</span>
         )}
+        {UnreadDot}
       </div>
       <div style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: 11.5, color: 'var(--ink-500)' }}>
         {nbInvites && (
@@ -131,8 +157,9 @@ export default function DemandeCard({ demande, focused = false, dense = false, o
           fontSize: 13.5, fontWeight: 550, flex: 1, minWidth: 0,
           overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
         }}>{contact.nom}</div>
-        <span style={{ color: 'var(--ink-400)' }}>
+        <span style={{ color: 'var(--ink-400)', display: 'inline-flex', alignItems: 'center', gap: 5 }}>
           <Icon name={CHANNEL_ICON[origine] ?? 'mail'} size={13} />
+          {UnreadDot}
         </span>
       </div>
 

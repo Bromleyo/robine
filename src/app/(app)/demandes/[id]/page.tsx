@@ -5,6 +5,8 @@ import { fetchDemandeDetail } from '@/lib/db/demandes'
 import { prisma } from '@/lib/db/prisma'
 import { calculerUrgenceDemande } from '@/lib/business/urgence'
 import StatusSelector from '@/components/detail/status-selector'
+import MarkReadButton from '@/components/detail/mark-read-button'
+import { isUnread } from '@/lib/business/urgence'
 import ReplyForm from '@/components/detail/reply-form'
 import NotesEditor from '@/components/detail/notes-editor'
 import AssigneeSelector from '@/components/detail/assignee-selector'
@@ -204,6 +206,13 @@ export default async function DemandePage({ params }: { params: Promise<{ id: st
             fromEmail={fromEmail}
             fromDomain={fromDomain}
           />
+          {isUnread({
+            lastMessageDirection: demande.lastMessageDirection,
+            lastMessageAt: demande.lastMessageAt,
+            lastSeenByAssigneeAt: demande.lastSeenByAssigneeAt,
+          }) && (
+            <MarkReadButton demandeId={demande.id} />
+          )}
           <StatusSelector demandeId={demande.id} currentStatut={demande.statut} />
         </div>
       </div>

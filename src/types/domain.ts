@@ -56,6 +56,8 @@ export interface Demande {
   conflitDetecte: boolean
   lastMessageAt?: Date
   lastMessageDirection?: DirectionMessage
+  // PR2 — null/absent = jamais consulté → hasUnread=true si dernier message IN.
+  lastSeenByAssigneeAt?: Date
   createdAt: Date
   updatedAt: Date
 }
@@ -66,6 +68,8 @@ export interface DemandeEnriched extends Demande {
   espace?: Espace
   urgenceLevel: NiveauUrgence
   threadCount: number
+  // PR2 — pastille "nouveau message". Calculé côté serveur via isUnread().
+  hasUnread: boolean
 }
 
 export interface KanbanColonne {

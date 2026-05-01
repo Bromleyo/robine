@@ -12,6 +12,11 @@ vi.mock('@/lib/db/prisma', () => ({
     demande: { findFirst: vi.fn(), update: vi.fn() },
     outlookMailbox: { findFirst: vi.fn() },
     message: { create: vi.fn() },
+    // PR2 — handler utilise $transaction([create, update]) pour la transition
+    // R1 atomique. Le mock exécute juste les promesses passées.
+    $transaction: vi.fn((ops: unknown) =>
+      Array.isArray(ops) ? Promise.all(ops as Promise<unknown>[]) : Promise.resolve(undefined),
+    ),
   },
 }))
 
@@ -49,10 +54,12 @@ describe('POST /api/demandes/[id]/messages — fix sharedMailboxEmail (Bug 1)', 
     mauth.mockResolvedValue({ user: { restaurantId: RESTAURANT_ID } } as never)
     mp.demande.findFirst.mockResolvedValue({
       id: 'd1',
+      statut: 'NOUVELLE',
       contact: { email: 'client@example.com' },
       threads: [{
         id: 'thread-1',
         messages: [{ microsoftGraphId: 'graph-id-123' }],
+        _count: { messages: 0 },
       }],
     } as never)
     msend.mockResolvedValue('<internet-id>')
@@ -114,10 +121,12 @@ describe('POST /api/demandes/[id]/messages — error handling Graph (logging)', 
     mauth.mockResolvedValue({ user: { restaurantId: RESTAURANT_ID } } as never)
     mp.demande.findFirst.mockResolvedValue({
       id: 'd1',
+      statut: 'NOUVELLE',
       contact: { email: 'client@example.com' },
       threads: [{
         id: 'thread-1',
         messages: [{ microsoftGraphId: 'graph-id-123' }],
+        _count: { messages: 0 },
       }],
     } as never)
     mp.outlookMailbox.findFirst.mockResolvedValue({
@@ -169,6 +178,74 @@ describe('POST /api/demandes/[id]/messages — error handling Graph (logging)', 
     const body = await res.json() as { error: string; status: number }
     expect(body.error).toBe('graph_message_not_found')
     expect(body.status).toBe(404)
+  })
+
+  // PR2 — R1 transitions
+  it('T1 (R1) — NOUVELLE + premier OUT → bascule EN_COURS + lastSeenByAssigneeAt set', async () => {
+    mp.demande.findFirst.mockResolvedValue({
+      id: 'd1',
+      statut: 'NOUVELLE',
+      contact: { email: 'client@example.com' },
+      threads: [{
+        id: 'thread-1',
+        messages: [{ microsoftGraphId: 'graph-id-123' }],
+        _count: { messages: 0 }, // 0 OUT existants → premier OUT
+      }],
+    } as never)
+    msend.mockResolvedValue('<msg-id>')
+
+    await POST(makeRequest({ body: 'Bonjour' }), { params: params() })
+
+    expect(mp.demande.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { id: 'd1' },
+        data: expect.objectContaining({
+          statut: 'EN_COURS',
+          lastSeenByAssigneeAt: expect.any(Date),
+          lastMessageAt: expect.any(Date),
+          lastMessageDirection: 'OUT',
+        }),
+      }),
+    )
+  })
+
+  it('T2 (R1) — NOUVELLE + 2e OUT (1er manqué) : pas de re-trigger statut, lastSeen quand même mis à jour', async () => {
+    mp.demande.findFirst.mockResolvedValue({
+      id: 'd1',
+      statut: 'NOUVELLE',
+      contact: { email: 'client@example.com' },
+      threads: [{
+        id: 'thread-1',
+        messages: [{ microsoftGraphId: 'graph-id-123' }],
+        _count: { messages: 1 }, // déjà 1 OUT existant
+      }],
+    } as never)
+    msend.mockResolvedValue('<msg-id>')
+
+    await POST(makeRequest({ body: 'Bonjour' }), { params: params() })
+
+    const call = mp.demande.update.mock.calls[0]![0]! as { data: Record<string, unknown> }
+    expect(call.data).not.toHaveProperty('statut')
+    expect(call.data).toHaveProperty('lastSeenByAssigneeAt')
+  })
+
+  it('R1 inactif sur EN_COURS (déjà transitionné) — pas de retour à EN_COURS forcé', async () => {
+    mp.demande.findFirst.mockResolvedValue({
+      id: 'd1',
+      statut: 'EN_COURS',
+      contact: { email: 'client@example.com' },
+      threads: [{
+        id: 'thread-1',
+        messages: [{ microsoftGraphId: 'graph-id-123' }],
+        _count: { messages: 0 },
+      }],
+    } as never)
+    msend.mockResolvedValue('<msg-id>')
+
+    await POST(makeRequest({ body: 'Bonjour' }), { params: params() })
+
+    const call = mp.demande.update.mock.calls[0]![0]! as { data: Record<string, unknown> }
+    expect(call.data).not.toHaveProperty('statut')
   })
 
   it('Graph autre erreur (500) → 502 + payload graph_error', async () => {

@@ -253,6 +253,10 @@ model Demande {
   conflitOverride     Boolean         @default(false)
   lastMessageAt       DateTime?
   lastMessageDirection DirectionMessage?
+  // PR2 — pastille unread :
+  // hasUnread = (direction='IN' && (lastSeenByAssigneeAt IS NULL || lastSeenByAssigneeAt < lastMessageAt))
+  // Mis à jour quand l'utilisateur envoie une réponse OUT ou clique "Marquer comme traité".
+  lastSeenByAssigneeAt DateTime?
   confirmedAt         DateTime?
   annuleAt            DateTime?
   legacyReference     String?

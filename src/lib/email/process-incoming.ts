@@ -79,10 +79,39 @@ export async function processIncomingEmail(email: NormalizedEmail, mailbox: Mail
 
   if (existingThread) {
     await storeMessage(existingThread.id, email)
+
+    // PR2 — R3+R4 : un IN rattaché à une demande existante en ATTENTE_CLIENT
+    // ou CONFIRMEE ré-ouvre la conversation. Note : R4 n'inverse PAS les
+    // compteurs contact (nbDemandesConfirmees, caTotalEstimeCents) car le
+    // bascule peut être temporaire (le client peut juste demander une précision).
+    // Les compteurs ne bougent que via le PATCH manuel (status-selector).
+    const current = await prisma.demande.findUnique({
+      where: { id: existingThread.demandeId },
+      select: { statut: true },
+    })
+    const previousStatut = current?.statut ?? null
+    const shouldReopen = previousStatut === 'ATTENTE_CLIENT' || previousStatut === 'CONFIRMEE'
+
     await prisma.demande.update({
       where: { id: existingThread.demandeId },
-      data: { lastMessageAt: email.receivedAt, lastMessageDirection: 'IN' },
+      data: {
+        lastMessageAt: email.receivedAt,
+        lastMessageDirection: 'IN',
+        ...(shouldReopen ? { statut: 'EN_COURS' as const } : {}),
+      },
     })
+
+    if (shouldReopen && previousStatut) {
+      logger.info({
+        demandeId: existingThread.demandeId,
+        from: previousStatut,
+        to: 'EN_COURS',
+        reason: 'in_received_on_closed_status',
+        transition: previousStatut === 'CONFIRMEE' ? 'R4' : 'R3',
+        contactStatsPreserved: previousStatut === 'CONFIRMEE',
+      }, '[demande] auto status transition')
+    }
+
     void notifyRestaurant({
       restaurantId,
       type: 'NOUVEAU_MESSAGE',

@@ -21,17 +21,23 @@ export async function POST(
 
   const demande = await prisma.demande.findFirst({
     where: { id, restaurantId: session.user.restaurantId },
-    include: {
+    select: {
+      id: true,
+      statut: true,
       contact: { select: { email: true } },
       threads: {
         orderBy: { createdAt: 'asc' },
         take: 1,
-        include: {
+        select: {
+          id: true,
           messages: {
             where: { direction: 'IN', microsoftGraphId: { not: null } },
             orderBy: { receivedAt: 'desc' },
             take: 1,
             select: { microsoftGraphId: true },
+          },
+          _count: {
+            select: { messages: { where: { direction: 'OUT' } } },
           },
         },
       },
@@ -91,23 +97,46 @@ export async function POST(
   }
 
   const now = new Date()
-  await prisma.message.create({
-    data: {
-      threadId: thread.id,
-      messageIdHeader: internetMessageId,
-      direction: 'OUT',
-      fromEmail: targetMailbox,
-      toEmails: [demande.contact.email],
-      bodyHtml: htmlBody,
-      bodyText: replyText,
-      sentAt: now,
-    },
-  })
+  // PR2 — R1 : si NOUVELLE + premier OUT du thread → bascule EN_COURS.
+  // _count.messages compte les OUT existants AVANT insertion ; "premier OUT"
+  // = ce count est à 0 maintenant.
+  const wasFirstOut = thread._count.messages === 0
+  const shouldTransition = demande.statut === 'NOUVELLE' && wasFirstOut
 
-  await prisma.demande.update({
-    where: { id },
-    data: { lastMessageAt: now, lastMessageDirection: 'OUT' },
-  })
+  await prisma.$transaction([
+    prisma.message.create({
+      data: {
+        threadId: thread.id,
+        messageIdHeader: internetMessageId,
+        direction: 'OUT',
+        fromEmail: targetMailbox,
+        toEmails: [demande.contact.email],
+        bodyHtml: htmlBody,
+        bodyText: replyText,
+        sentAt: now,
+      },
+    }),
+    prisma.demande.update({
+      where: { id },
+      data: {
+        lastMessageAt: now,
+        lastMessageDirection: 'OUT',
+        // R1 + bouton "Envoyer" : marque la demande comme vue.
+        lastSeenByAssigneeAt: now,
+        ...(shouldTransition ? { statut: 'EN_COURS' as const } : {}),
+      },
+    }),
+  ])
+
+  if (shouldTransition) {
+    logger.info({
+      demandeId: id,
+      from: 'NOUVELLE',
+      to: 'EN_COURS',
+      reason: 'first_out_sent',
+      transition: 'R1',
+    }, '[demande] auto status transition R1')
+  }
 
   return NextResponse.json({ ok: true })
 }

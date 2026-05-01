@@ -22,7 +22,17 @@ export default function KanbanBoard({ demandes, focusedId, onCardClick }: Props)
   const [variant, setVariant] = useState<'classic' | 'dense'>('classic')
 
   const byStatut = (statut: StatutDemande) =>
-    demandes.filter(d => d.statut === statut).sort((a, b) => b.urgenceScore - a.urgenceScore)
+    demandes
+      .filter(d => d.statut === statut)
+      .sort((a, b) => {
+        // PR2 — primary: urgenceScore desc (boost unread déjà inclus côté serveur).
+        if (b.urgenceScore !== a.urgenceScore) return b.urgenceScore - a.urgenceScore
+        // PR2 — tie-breaker: dateEvenement ASC NULLS LAST.
+        if (!a.dateEvenement && !b.dateEvenement) return 0
+        if (!a.dateEvenement) return 1
+        if (!b.dateEvenement) return -1
+        return new Date(a.dateEvenement).getTime() - new Date(b.dateEvenement).getTime()
+      })
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0 }}>

@@ -1,5 +1,5 @@
 import { prisma } from '@/lib/db/prisma'
-import { calculerUrgenceDemande } from '@/lib/business/urgence'
+import { calculerUrgenceDemande, isUnread } from '@/lib/business/urgence'
 import type { DemandeEnriched } from '@/types/domain'
 
 export async function fetchDemandesKanban(restaurantId: string): Promise<DemandeEnriched[]> {
@@ -14,17 +14,30 @@ export async function fetchDemandesKanban(restaurantId: string): Promise<Demande
       espace: { select: { id: true, restaurantId: true, nom: true, capaciteMax: true, actif: true } },
       _count: { select: { threads: true } },
     },
-    orderBy: { urgenceScore: 'desc' },
+    // PR2 — tie-breaker DB-level : à score égal, l'événement le plus proche
+    // d'abord, les sans-date en fin. Le tri intra-colonne du composant
+    // kanban-board.tsx applique le même critère pour rester cohérent après
+    // recalcul live du score (boost unread).
+    orderBy: [
+      { urgenceScore: 'desc' },
+      { dateEvenement: { sort: 'asc', nulls: 'last' } },
+    ],
   })
 
   const now = new Date()
   return rows.map(d => {
+    const hasUnread = isUnread({
+      lastMessageDirection: d.lastMessageDirection,
+      lastMessageAt: d.lastMessageAt,
+      lastSeenByAssigneeAt: d.lastSeenByAssigneeAt,
+    })
     const urgence = calculerUrgenceDemande({
       statut: d.statut,
       dateEvenement: d.dateEvenement,
       now,
       lastMessageAt: d.lastMessageAt,
       lastMessageDirection: d.lastMessageDirection,
+      hasUnread,
     })
     return {
       id: d.id,
@@ -46,6 +59,7 @@ export async function fetchDemandesKanban(restaurantId: string): Promise<Demande
       conflitDetecte: d.conflitDetecte,
       lastMessageAt: d.lastMessageAt ?? undefined,
       lastMessageDirection: d.lastMessageDirection ?? undefined,
+      lastSeenByAssigneeAt: d.lastSeenByAssigneeAt ?? undefined,
       createdAt: d.createdAt,
       updatedAt: d.updatedAt,
       contact: {
@@ -62,6 +76,7 @@ export async function fetchDemandesKanban(restaurantId: string): Promise<Demande
       espace: d.espace ?? undefined,
       urgenceLevel: urgence.level,
       threadCount: d._count.threads,
+      hasUnread,
     }
   })
 }

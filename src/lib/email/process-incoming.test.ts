@@ -9,8 +9,9 @@ vi.mock('@/lib/db/prisma', () => ({
   prisma: {
     message: { findFirst: vi.fn(), create: vi.fn() },
     thread:  { findFirst: vi.fn(), create: vi.fn() },
-    demande: { update: vi.fn(),    create: vi.fn() },
-    contact: { upsert:  vi.fn(),   update: vi.fn() },
+    // PR2 — findUnique requis par R3/R4 pour lire le statut courant avant transition.
+    demande: { update: vi.fn(), create: vi.fn(), findUnique: vi.fn() },
+    contact: { upsert:  vi.fn(), update: vi.fn() },
   },
 }))
 
@@ -64,6 +65,8 @@ describe('processIncomingEmail — thread matching fallbacks', () => {
     mp.contact.upsert.mockResolvedValue({ id: 'contact-1' } as never)
     mp.contact.update.mockResolvedValue({} as never)
     mp.thread.create.mockResolvedValue({ id: 'new-thread' } as never)
+    // PR2 — default : EN_COURS (pas de transition R3/R4 sauf override par test).
+    mp.demande.findUnique.mockResolvedValue({ statut: 'EN_COURS' } as never)
   })
 
   it('Test A — primary: email avec graphConversationId matchant → rattaché au thread existant', async () => {
@@ -161,5 +164,73 @@ describe('processIncomingEmail — thread matching fallbacks', () => {
     )
     // Thread non trouvé → nouvelle demande pour restaurant-A uniquement
     expect(mp.demande.create).toHaveBeenCalled()
+  })
+})
+
+// ─── PR2 — R3/R4 transitions auto sur IN reçu ───────────────────────────────
+
+describe('processIncomingEmail — transitions R3/R4 (PR2)', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    mp.message.create.mockResolvedValue({} as never)
+    mp.demande.update.mockResolvedValue({} as never)
+    mp.message.findFirst.mockResolvedValue(null) // pas dédup
+    mp.thread.findFirst.mockResolvedValueOnce({ id: 'thread-X', demandeId: 'demande-X' } as never)
+  })
+
+  it('T5 (R3) — ATTENTE_CLIENT → EN_COURS sur IN', async () => {
+    mp.demande.findUnique.mockResolvedValueOnce({ statut: 'ATTENTE_CLIENT' } as never)
+
+    await processIncomingEmail(makeEmail({ conversationId: 'conv-X' }), MAILBOX)
+
+    expect(mp.demande.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { id: 'demande-X' },
+        data: expect.objectContaining({
+          statut: 'EN_COURS',
+          lastMessageDirection: 'IN',
+        }),
+      }),
+    )
+  })
+
+  it('T6 (R4) — CONFIRMEE → EN_COURS sur IN, sans toucher contact stats', async () => {
+    mp.demande.findUnique.mockResolvedValueOnce({ statut: 'CONFIRMEE' } as never)
+
+    await processIncomingEmail(makeEmail({ conversationId: 'conv-X' }), MAILBOX)
+
+    expect(mp.demande.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ statut: 'EN_COURS' }),
+      }),
+    )
+    // Important : R4 n'inverse PAS les compteurs contact (preserveContactStats).
+    expect(mp.contact.update).not.toHaveBeenCalled()
+  })
+
+  it('EN_COURS sur IN → pas de transition (déjà ouvert)', async () => {
+    mp.demande.findUnique.mockResolvedValueOnce({ statut: 'EN_COURS' } as never)
+
+    await processIncomingEmail(makeEmail({ conversationId: 'conv-X' }), MAILBOX)
+
+    const call = mp.demande.update.mock.calls[0]![0]! as { data: Record<string, unknown> }
+    expect(call.data).not.toHaveProperty('statut')
+    expect(call.data.lastMessageDirection).toBe('IN')
+  })
+
+  it('T10 — ANNULEE/PERDUE NE sont PAS ré-ouvertes par un IN', async () => {
+    for (const statut of ['ANNULEE', 'PERDUE'] as const) {
+      vi.clearAllMocks()
+      mp.message.create.mockResolvedValue({} as never)
+      mp.demande.update.mockResolvedValue({} as never)
+      mp.message.findFirst.mockResolvedValue(null)
+      mp.thread.findFirst.mockResolvedValueOnce({ id: 'thread-X', demandeId: 'demande-X' } as never)
+      mp.demande.findUnique.mockResolvedValueOnce({ statut } as never)
+
+      await processIncomingEmail(makeEmail({ conversationId: 'conv-X' }), MAILBOX)
+
+      const call = mp.demande.update.mock.calls[0]![0]! as { data: Record<string, unknown> }
+      expect(call.data).not.toHaveProperty('statut')
+    }
   })
 })
