@@ -4,6 +4,8 @@ import { useState, useEffect, useCallback } from 'react'
 import Link from 'next/link'
 import Icon from '@/components/ui/icon'
 import ReplyForm from '@/components/detail/reply-form'
+import EvenementEditor from '@/components/detail/evenement-editor'
+import type { TypeEvenement } from '@/types/domain'
 
 type ContactJson = {
   id: string; nom: string; email: string; societe?: string | null; telephone?: string | null
@@ -20,11 +22,13 @@ type DemandeJson = {
   typeEvenement?: string | null; dateEvenement?: string | null
   heureDebut?: string | null; heureFin?: string | null
   nbInvites?: number | null
+  espaceId?: string | null
   contraintesAlimentaires: string[]
   contact: ContactJson
   espace?: { nom: string } | null
   threads: Array<{ id: string; messages: MessageJson[] }>
 }
+type EspaceJson = { id: string; nom: string; capaciteMax: number }
 type MenuJson = {
   id: string; nom: string; description?: string | null
   prixCents: number; regimesSupportes: string[]
@@ -37,7 +41,7 @@ type MenuJson = {
 type TemplateJson = {
   id: string; nom: string; objectif: string; bodyTemplate: string
 }
-interface ModalData { demande: DemandeJson; menus: MenuJson[]; templates: TemplateJson[] }
+interface ModalData { demande: DemandeJson; menus: MenuJson[]; templates: TemplateJson[]; espaces: EspaceJson[] }
 
 interface Props {
   demandeId: string | null
@@ -92,14 +96,18 @@ export default function DemandeFocusModal({ demandeId, onClose }: Props) {
   const [aiTab, setAiTab] = useState<'email' | 'admin'>('email')
   const [copied, setCopied] = useState(false)
 
+  const fetchData = useCallback(async () => {
+    if (!demandeId) return
+    const r = await fetch(`/api/demandes/${demandeId}`)
+    const d = await r.json() as ModalData
+    setData(d)
+  }, [demandeId])
+
   useEffect(() => {
     if (!demandeId) { setData(null); return }
     setLoading(true)
-    fetch(`/api/demandes/${demandeId}`)
-      .then(r => r.json())
-      .then(d => setData(d as ModalData))
-      .finally(() => setLoading(false))
-  }, [demandeId])
+    void fetchData().finally(() => setLoading(false))
+  }, [demandeId, fetchData])
 
   const handleKey = useCallback((e: KeyboardEvent) => {
     if (e.key === 'Escape') onClose()
@@ -261,23 +269,20 @@ export default function DemandeFocusModal({ demandeId, onClose }: Props) {
                   Détails & Historique
                 </span>
 
-                {/* Event details */}
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 5, marginTop: 10 }}>
-                  {([
-                    { label: 'Type', value: data.demande.typeEvenement ? (EVENT_LABEL[data.demande.typeEvenement] ?? data.demande.typeEvenement) : null },
-                    { label: 'Date', value: data.demande.dateEvenement ? formatDate(data.demande.dateEvenement) : null },
-                    { label: 'Horaire', value: (data.demande.heureDebut || data.demande.heureFin) ? [data.demande.heureDebut, data.demande.heureFin].filter(Boolean).join(' – ') : null },
-                    { label: 'Invités', value: data.demande.nbInvites ? `${data.demande.nbInvites} personnes` : null },
-                    { label: 'Espace', value: data.demande.espace?.nom ?? null },
-                    { label: 'Régimes', value: data.demande.contraintesAlimentaires.length > 0 ? data.demande.contraintesAlimentaires.join(', ') : null },
-                  ] as { label: string; value: string | null }[]).map((row) => (
-                    <div key={row.label} style={{ display: 'flex', gap: 6, fontSize: 12.5, lineHeight: 1.4 }}>
-                      <span style={{ color: 'var(--ink-400)', flexShrink: 0, minWidth: 52 }}>{row.label}</span>
-                      <span style={{ color: row.value ? 'var(--ink-800)' : 'var(--ink-300)', fontWeight: row.value ? 500 : 400 }}>
-                        {row.value ?? '—'}
-                      </span>
-                    </div>
-                  ))}
+                {/* Event details (editable inline) */}
+                <div style={{ marginTop: 10 }}>
+                  <EvenementEditor
+                    demandeId={data.demande.id}
+                    typeEvenement={(data.demande.typeEvenement ?? null) as TypeEvenement | null}
+                    dateEvenement={data.demande.dateEvenement ?? null}
+                    heureDebut={data.demande.heureDebut ?? null}
+                    heureFin={data.demande.heureFin ?? null}
+                    nbInvites={data.demande.nbInvites ?? null}
+                    espaceId={data.demande.espaceId ?? null}
+                    espaces={data.espaces}
+                    contraintesAlimentaires={data.demande.contraintesAlimentaires}
+                    onSaved={() => void fetchData()}
+                  />
                 </div>
 
                 {/* Contact history */}

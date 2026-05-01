@@ -44,6 +44,7 @@ export const PatchDemandeSchema = z.object({
   heureDebut: z.string().regex(/^\d{2}:\d{2}$/).nullable().optional(),
   heureFin: z.string().regex(/^\d{2}:\d{2}$/).nullable().optional(),
   nbInvites: z.number().int().min(1).max(5000).nullable().optional(),
+  contraintesAlimentaires: z.array(z.string().min(1).max(60)).max(20).optional(),
   conflitOverride: z.boolean().optional(),
 }).strict()
 

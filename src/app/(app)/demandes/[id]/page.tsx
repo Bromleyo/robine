@@ -5,6 +5,7 @@ import { fetchDemandeDetail } from '@/lib/db/demandes'
 import { prisma } from '@/lib/db/prisma'
 import { calculerUrgenceDemande } from '@/lib/business/urgence'
 import StatusSelector from '@/components/detail/status-selector'
+import EvenementEditor from '@/components/detail/evenement-editor'
 import MarkReadButton from '@/components/detail/mark-read-button'
 import { isUnread } from '@/lib/business/urgence'
 import ReplyForm from '@/components/detail/reply-form'
@@ -65,7 +66,7 @@ export default async function DemandePage({ params }: { params: Promise<{ id: st
 
   const { id } = await params
   const restaurantId = session.user.restaurantId
-  const [demande, templates, restaurant, imprimante] = await Promise.all([
+  const [demande, templates, restaurant, imprimante, espaces] = await Promise.all([
     fetchDemandeDetail(restaurantId, id),
     prisma.templateMessage.findMany({
       where: { restaurantId, actif: true },
@@ -80,6 +81,11 @@ export default async function DemandePage({ params }: { params: Promise<{ id: st
       where: { restaurantId, actif: true },
       orderBy: { createdAt: 'asc' },
       select: { adresseIp: true },
+    }),
+    prisma.espace.findMany({
+      where: { restaurantId, actif: true },
+      orderBy: { ordre: 'asc' },
+      select: { id: true, nom: true, capaciteMax: true },
     }),
   ])
   if (!demande) notFound()
@@ -250,31 +256,20 @@ export default async function DemandePage({ params }: { params: Promise<{ id: st
             </div>
           </div>
 
-          {/* Événement */}
+          {/* Événement (editable inline) */}
           <div>
             <SectionLabel>Événement</SectionLabel>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-              {demande.typeEvenement && (
-                <MetaRow icon="star">{EVENT_LABEL[demande.typeEvenement] ?? demande.typeEvenement}</MetaRow>
-              )}
-              {demande.dateEvenement && (
-                <MetaRow icon="cal">{formatDate(demande.dateEvenement)}</MetaRow>
-              )}
-              {(demande.heureDebut || demande.heureFin) && (
-                <MetaRow icon="clock">
-                  {demande.heureDebut ?? '?'}{demande.heureFin ? ` – ${demande.heureFin}` : ''}
-                </MetaRow>
-              )}
-              {demande.nbInvites && (
-                <MetaRow icon="users">{demande.nbInvites} invités</MetaRow>
-              )}
-              {demande.espace && (
-                <MetaRow icon="pin">{demande.espace.nom}</MetaRow>
-              )}
-              {demande.contraintesAlimentaires.length > 0 && (
-                <MetaRow icon="check">{demande.contraintesAlimentaires.join(', ')}</MetaRow>
-              )}
-            </div>
+            <EvenementEditor
+              demandeId={demande.id}
+              typeEvenement={demande.typeEvenement}
+              dateEvenement={demande.dateEvenement}
+              heureDebut={demande.heureDebut}
+              heureFin={demande.heureFin}
+              nbInvites={demande.nbInvites}
+              espaceId={demande.espaceId}
+              espaces={espaces}
+              contraintesAlimentaires={demande.contraintesAlimentaires}
+            />
           </div>
 
           {/* Assigné */}

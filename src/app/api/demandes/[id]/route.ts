@@ -5,6 +5,8 @@ import { fetchDemandeDetail } from '@/lib/db/demandes'
 import { PatchDemandeSchema } from '@/lib/validation/schemas'
 import { notifyRestaurant } from '@/lib/db/notifications'
 import { requireRole } from '@/lib/auth/require-role'
+import { calculerUrgenceDemande } from '@/lib/business/urgence'
+import { detecterConflits } from '@/lib/business/conflit'
 
 export async function GET(
   _req: NextRequest,
@@ -16,7 +18,7 @@ export async function GET(
   const { id } = await params
   const restaurantId = session.user.restaurantId
 
-  const [demande, menus, templates] = await Promise.all([
+  const [demande, menus, templates, espaces] = await Promise.all([
     fetchDemandeDetail(restaurantId, id),
     prisma.menu.findMany({
       where: { restaurantId, actif: true },
@@ -27,10 +29,15 @@ export async function GET(
       orderBy: [{ ordre: 'asc' }, { nom: 'asc' }],
       take: 4,
     }),
+    prisma.espace.findMany({
+      where: { restaurantId, actif: true },
+      orderBy: { ordre: 'asc' },
+      select: { id: true, nom: true, capaciteMax: true },
+    }),
   ])
 
   if (!demande) return NextResponse.json({ error: 'Not found' }, { status: 404 })
-  return NextResponse.json({ demande, menus, templates })
+  return NextResponse.json({ demande, menus, templates, espaces })
 }
 
 export async function PATCH(
@@ -57,7 +64,12 @@ export async function PATCH(
   const newStatut = parsed.data.statut
   const newAssigneeId = parsed.data.assigneeId
 
-  if (newStatut !== undefined) {
+  // PR6 — fields whose change invalidates the cached urgenceScore / conflitDetecte.
+  const datePatched = 'dateEvenement' in parsed.data
+  const espacePatched = 'espaceId' in parsed.data
+  const statutPatched = newStatut !== undefined
+
+  if (statutPatched) {
     const current = await prisma.demande.findFirst({
       where: { id, restaurantId },
       select: { statut: true, contactId: true, reference: true },
@@ -96,6 +108,35 @@ export async function PATCH(
   } else {
     const result = await prisma.demande.updateMany({ where: { id, restaurantId }, data })
     if (result.count === 0) return NextResponse.json({ error: 'Not found' }, { status: 404 })
+  }
+
+  // PR6 — recalculs synchrones après update.
+  if (datePatched || espacePatched || statutPatched) {
+    const fresh = await prisma.demande.findUnique({
+      where: { id },
+      select: {
+        statut: true, dateEvenement: true,
+        lastMessageAt: true, lastMessageDirection: true,
+      },
+    })
+    if (fresh) {
+      const urgence = calculerUrgenceDemande({
+        statut: fresh.statut,
+        dateEvenement: fresh.dateEvenement,
+        now: new Date(),
+        lastMessageAt: fresh.lastMessageAt,
+        lastMessageDirection: fresh.lastMessageDirection,
+      })
+      const updates: Record<string, unknown> = {
+        urgenceScore: urgence.score,
+        urgenceUpdatedAt: new Date(),
+      }
+      if (datePatched || espacePatched) {
+        const { hasConflict } = await detecterConflits(restaurantId, id)
+        updates.conflitDetecte = hasConflict
+      }
+      await prisma.demande.update({ where: { id }, data: updates })
+    }
   }
 
   return NextResponse.json({ ok: true })
