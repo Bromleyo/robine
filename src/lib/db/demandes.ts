@@ -83,8 +83,41 @@ export async function fetchDemandesKanban(restaurantId: string): Promise<Demande
 
 export type DemandeDetail = NonNullable<Awaited<ReturnType<typeof fetchDemandeDetail>>>
 
+/**
+ * PR3 — Tri chronologique strict d'un thread de messages.
+ * effectiveDate = sentAt ?? receivedAt ?? createdAt (préserve la sémantique
+ * temporelle même quand le pipeline d'ingest a re-créé un message — cf.
+ * reparse-message-bodies, reingest-lost-event-emails — où createdAt diverge
+ * de receivedAt). Tie-breakers : createdAt puis id (cuid lexicographique
+ * stable, monotone temporel).
+ *
+ * ASC strict : ancien en haut, récent en bas (sens lecture chat).
+ */
+export interface SortableMessage {
+  id: string
+  sentAt: Date | null
+  receivedAt: Date | null
+  createdAt: Date
+}
+
+function effectiveDateMs(m: SortableMessage): number {
+  return (m.sentAt ?? m.receivedAt ?? m.createdAt).getTime()
+}
+
+export function sortMessagesChronologically<T extends SortableMessage>(messages: T[]): T[] {
+  return [...messages].sort((a, b) => {
+    const da = effectiveDateMs(a)
+    const db = effectiveDateMs(b)
+    if (da !== db) return da - db
+    const ca = a.createdAt.getTime()
+    const cb = b.createdAt.getTime()
+    if (ca !== cb) return ca - cb
+    return a.id.localeCompare(b.id)
+  })
+}
+
 export async function fetchDemandeDetail(restaurantId: string, id: string) {
-  return prisma.demande.findFirst({
+  const demande = await prisma.demande.findFirst({
     where: { id, restaurantId },
     include: {
       contact: true,
@@ -94,6 +127,8 @@ export async function fetchDemandeDetail(restaurantId: string, id: string) {
       threads: {
         orderBy: { createdAt: 'asc' },
         include: {
+          // PR3 — orderBy DB conservé comme pré-tri, mais le re-sort JS
+          // ci-dessous est la source de vérité (gère sentAt/receivedAt NULL).
           messages: {
             orderBy: [{ receivedAt: 'asc' }, { createdAt: 'asc' }],
           },
@@ -101,6 +136,14 @@ export async function fetchDemandeDetail(restaurantId: string, id: string) {
       },
     },
   })
+
+  if (demande) {
+    for (const thread of demande.threads) {
+      thread.messages = sortMessagesChronologically(thread.messages)
+    }
+  }
+
+  return demande
 }
 
 export type DemandesView = 'active' | 'archived' | 'trash'

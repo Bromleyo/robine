@@ -140,3 +140,15 @@ svg { display: block; }
 ::-webkit-scrollbar { width: 6px; height: 6px; }
 ::-webkit-scrollbar-thumb { background: var(--border-strong); border-radius: 3px; }
 ::-webkit-scrollbar-track { background: transparent; }
+
+/* ─── PR3 — Badge "NOUVEAU" : pulse au chargement (2× puis stop) ─── */
+@keyframes unread-pulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50%      { opacity: 0.75; transform: scale(1.08); }
+}
+.unread-badge {
+  animation: unread-pulse 2s ease-in-out 2 both;
+}
+@media (prefers-reduced-motion: reduce) {
+  .unread-badge { animation: none; }
+}

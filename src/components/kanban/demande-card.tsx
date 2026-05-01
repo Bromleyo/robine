@@ -61,9 +61,10 @@ export default function DemandeCard({ demande, focused = false, dense = false, o
   const unreadDotColor = UNREAD_DOT_COLOR[statut] ?? '#9F1239'
 
   // PR2 — pastille "nouveau message" : point coloré à côté de l'icône.
+  // PR3 : aria-hidden car le badge "NOUVEAU" ci-dessous porte l'a11y.
   const UnreadDot = hasUnread ? (
     <span
-      aria-label="Nouveau message"
+      aria-hidden="true"
       title="Nouveau message"
       style={{
         width: 7, height: 7, borderRadius: '50%',
@@ -73,10 +74,31 @@ export default function DemandeCard({ demande, focused = false, dense = false, o
     />
   ) : null
 
+  // PR3 — badge "NOUVEAU" pill ambre, plus explicite que le dot, en haut à
+  // gauche de la card. Animation pulse 2× au mount via classe globale
+  // .unread-badge (cf. globals.css ; respecte prefers-reduced-motion).
+  const UnreadBadge = hasUnread ? (
+    <span
+      role="status"
+      aria-label="Nouveau message non lu"
+      className="unread-badge"
+      style={{
+        display: 'inline-flex', alignItems: 'center',
+        padding: '2px 6px',
+        borderRadius: 999,
+        fontSize: 9.5, fontWeight: 600,
+        textTransform: 'uppercase', letterSpacing: '0.04em',
+        background: '#F59E0B', color: '#fff',
+        flexShrink: 0,
+      }}
+    >Nouveau</span>
+  ) : null
+
   /* ── Dense variant ── */
   const denseContent = (
     <>
       <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+        {UnreadBadge}
         <div style={{
           width: 20, height: 20, borderRadius: '50%',
           background: avatarBg, color: '#fff',
@@ -147,6 +169,7 @@ export default function DemandeCard({ demande, focused = false, dense = false, o
       )}
 
       <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+        {UnreadBadge}
         <div style={{
           width: 24, height: 24, borderRadius: '50%',
           background: avatarBg, color: '#fff',
