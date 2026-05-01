@@ -113,16 +113,16 @@ Comment le restaurant s'adresse-t-il aux clients ? Tutoiement/vouvoiement ? Nive
 Quel est le squelette type d'une première réponse ? (accroche → remerciement → questions de qualification → présentation des options → appel à l'action). Décris-le précisément.
 
 ## 3. Questions de qualification systématiques
-Quelles sont les informations que le restaurant cherche TOUJOURS à obtenir avant de proposer un devis ? (date, nombre de convives, type d'événement, budget, contraintes alimentaires, etc.) Liste-les par ordre de priorité.
+Quelles sont les informations que le restaurant cherche TOUJOURS à obtenir avant de proposer un devis ? (date, nombre de convives, type d'événement, contraintes alimentaires, etc.) Liste-les par ordre de priorité.
 
 ## 4. Formules récurrentes
 Liste les phrases types réutilisées (ouverture, transition, conclusion, remerciement). Cite-les telles qu'écrites dans le corpus.
 
 ## 5. Gestion des prix et devis
-Comment le restaurant aborde-t-il les prix ? Communique-t-il un budget indicatif d'emblée ? Renvoie-t-il vers un menu PDF ? Propose-t-il plusieurs formules ? Comment justifie-t-il les tarifs ?
+Comment le restaurant aborde-t-il les prix ? Renvoie-t-il vers un menu PDF ? Propose-t-il plusieurs formules ? Comment justifie-t-il les tarifs ?
 
 ## 6. Gestion des objections et négociations
-Comment réagit le restaurant face à : un client qui trouve cher, qui demande une remise, qui hésite, qui demande des modifs au menu, qui a une contrainte forte (allergie, religion, budget) ?
+Comment réagit le restaurant face à : un client qui trouve cher, qui demande une remise, qui hésite, qui demande des modifs au menu, qui a une contrainte forte (allergie, religion) ?
 
 ## 7. Espaces et capacités
 Quelles informations le restaurant donne-t-il sur ses espaces (La Cave, Le Salon, etc.) ? Comment les présente-t-il ? Quelles capacités sont mentionnées ?

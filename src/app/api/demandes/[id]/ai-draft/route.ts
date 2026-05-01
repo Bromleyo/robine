@@ -57,7 +57,6 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   if (demande.dateEvenement) details.push(`Date : ${new Intl.DateTimeFormat('fr-FR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' }).format(demande.dateEvenement)}`)
   if (demande.heureDebut) details.push(`Horaire : ${demande.heureDebut}${demande.heureFin ? ` – ${demande.heureFin}` : ''}`)
   if (demande.nbInvites) details.push(`Invités : ${demande.nbInvites} personnes`)
-  if (demande.budgetIndicatifCents) details.push(`Budget : ~${Math.round(demande.budgetIndicatifCents / 100)} € / pers.`)
   if (demande.espace) details.push(`Espace : ${demande.espace.nom}`)
   if (demande.contraintesAlimentaires.length > 0) details.push(`Contraintes : ${demande.contraintesAlimentaires.join(', ')}`)
 

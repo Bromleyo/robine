@@ -53,7 +53,6 @@ export async function fetchDemandesKanban(restaurantId: string): Promise<Demande
       heureDebut: d.heureDebut ?? undefined,
       heureFin: d.heureFin ?? undefined,
       nbInvites: d.nbInvites ?? undefined,
-      budgetIndicatifCents: d.budgetIndicatifCents ?? undefined,
       contraintesAlimentaires: d.contraintesAlimentaires,
       urgenceScore: urgence.score,
       conflitDetecte: d.conflitDetecte,

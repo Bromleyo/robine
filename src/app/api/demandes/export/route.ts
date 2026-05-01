@@ -41,7 +41,7 @@ export async function GET(_req: NextRequest) {
   const headers = [
     'Référence', 'Contact', 'Email', 'Société', 'Téléphone',
     'Type événement', 'Date événement', 'Heure début', 'Heure fin',
-    'Nb invités', 'Budget (€)', 'Espace', 'Statut', 'Assigné', 'Créé le',
+    'Nb invités', 'Espace', 'Statut', 'Assigné', 'Créé le',
   ]
 
   const rows = demandes.map(d => [
@@ -55,7 +55,6 @@ export async function GET(_req: NextRequest) {
     d.heureDebut,
     d.heureFin,
     d.nbInvites,
-    d.budgetIndicatifCents != null ? Math.round(d.budgetIndicatifCents / 100) : null,
     d.espace?.nom,
     STATUT_LABEL[d.statut] ?? d.statut,
     d.assignee?.nom,

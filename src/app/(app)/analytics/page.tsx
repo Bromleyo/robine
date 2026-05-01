@@ -3,10 +3,6 @@ import { redirect } from 'next/navigation'
 import { prisma } from '@/lib/db/prisma'
 import Topbar from '@/components/layout/topbar'
 
-function fmtMoney(cents: number) {
-  return new Intl.NumberFormat('fr-FR', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 }).format(cents / 100)
-}
-
 function fmtPct(n: number) {
   return `${Math.round(n * 100)} %`
 }
@@ -62,7 +58,6 @@ export default async function AnalyticsPage() {
       by: ['statut'],
       where: { restaurantId },
       _count: { id: true },
-      _sum: { budgetIndicatifCents: true },
     }),
     prisma.demande.groupBy({
       by: ['typeEvenement'],
@@ -72,7 +67,7 @@ export default async function AnalyticsPage() {
     }),
     prisma.demande.findMany({
       where: { restaurantId },
-      select: { createdAt: true, statut: true, budgetIndicatifCents: true },
+      select: { createdAt: true, statut: true },
       orderBy: { createdAt: 'asc' },
     }),
     prisma.rejectedEmail.groupBy({
@@ -87,9 +82,9 @@ export default async function AnalyticsPage() {
     }),
   ])
 
-  type StatutRow = { statut: string; _count: { id: number }; _sum: { budgetIndicatifCents: number | null } }
+  type StatutRow = { statut: string; _count: { id: number } }
   type TypeRow = { typeEvenement: string | null; _count: { id: number } }
-  type DemandeItem = { createdAt: Date; statut: string; budgetIndicatifCents: number | null }
+  type DemandeItem = { createdAt: Date; statut: string }
   type RejectedRow = { rejectReason: string; _count: { id: number } }
   type MethodRow = { classificationMethod: string | null; _count: { id: number } }
 
@@ -103,11 +98,6 @@ export default async function AnalyticsPage() {
   const confirmedCount = byStatutT.find((r) => r.statut === 'CONFIRMEE')?._count.id ?? 0
   const activeTotal = allDemandesT.filter((d) => d.statut !== 'ANNULEE' && d.statut !== 'PERDUE').length
   const conversionRate = activeTotal > 0 ? confirmedCount / activeTotal : 0
-  const caTotalCents = byStatutT.find((r) => r.statut === 'CONFIRMEE')?._sum.budgetIndicatifCents ?? 0
-  const budgetPipelineCents = byStatutT
-    .filter((r) => r.statut === 'NOUVELLE' || r.statut === 'EN_COURS' || r.statut === 'ATTENTE_CLIENT')
-    .reduce((sum, r) => sum + (r._sum.budgetIndicatifCents ?? 0), 0)
-
   const monthMap = new Map<string, number>()
   const now = new Date()
   for (let i = 11; i >= 0; i--) {
@@ -134,12 +124,10 @@ export default async function AnalyticsPage() {
       <div style={{ flex: 1, overflowY: 'auto', padding: '24px 28px', display: 'flex', flexDirection: 'column', gap: 20 }}>
 
         {/* KPI row */}
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 14 }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 14 }}>
           {[
             { label: 'Total demandes', value: String(total), sub: 'toutes périodes' },
             { label: 'Confirmées', value: String(confirmedCount), sub: `${fmtPct(conversionRate)} de conversion`, color: '#059669' },
-            { label: 'CA confirmé', value: caTotalCents > 0 ? fmtMoney(caTotalCents) : '—', sub: 'budget indicatif', color: '#059669' },
-            { label: 'Pipeline actif', value: budgetPipelineCents > 0 ? fmtMoney(budgetPipelineCents) : '—', sub: 'nouvelles + en cours', color: '#6366F1' },
           ].map(kpi => (
             <Card key={kpi.label}>
               <div style={{ fontSize: 11, color: 'var(--ink-400)', fontWeight: 500, marginBottom: 6, textTransform: 'uppercase', letterSpacing: '0.07em' }}>{kpi.label}</div>

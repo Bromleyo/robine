@@ -14,7 +14,6 @@ export interface EmailExtraction {
   heureDebut: string | null
   heureFin: string | null
   nbInvites: number | null
-  budgetIndicatifCents: number | null
   contraintesAlimentaires: string[]
   notes: string | null
   confidence: 'high' | 'medium' | 'low'
@@ -24,7 +23,7 @@ const FALLBACK_NON_DEMANDE = (senderEmail: string): EmailExtraction => ({
   isDemandeEvenement: false, nomContact: null, emailContact: senderEmail,
   societeContact: null, telephoneContact: null, typeEvenement: null,
   dateEvenement: null, heureDebut: null, heureFin: null,
-  nbInvites: null, budgetIndicatifCents: null, contraintesAlimentaires: [],
+  nbInvites: null, contraintesAlimentaires: [],
   notes: null, confidence: 'low',
 })
 
@@ -32,7 +31,7 @@ const FALLBACK_PARSE_ERROR = (senderEmail: string): EmailExtraction => ({
   isDemandeEvenement: false, nomContact: null, emailContact: senderEmail,
   societeContact: null, telephoneContact: null, typeEvenement: null,
   dateEvenement: null, heureDebut: null, heureFin: null,
-  nbInvites: null, budgetIndicatifCents: null, contraintesAlimentaires: [],
+  nbInvites: null, contraintesAlimentaires: [],
   notes: null, confidence: 'low',
 })
 
@@ -72,7 +71,6 @@ Si accepté : isDemandeEvenement: true + les champs ci-dessous. Extrais UNIQUEME
 
 Pour typeEvenement : MARIAGE, DINER_ENTREPRISE, ANNIVERSAIRE, SEMINAIRE, PRIVATISATION, BAPTEME, COCKTAIL, AUTRE.
 Pour dateEvenement : format ISO YYYY-MM-DD. Si l'année manque, prends la prochaine occurrence logique.
-Pour budgetIndicatifCents : convertis en centimes (3000€ → 300000).
 Pour contraintesAlimentaires : liste les régimes/allergies (vegetarien, vegan, kasher, halal, sans_gluten, etc.).
 Pour confidence : high si date + type + nbInvites tous présents, medium si 2 des 3, low sinon.
 
@@ -112,7 +110,6 @@ export async function extractDemandeFromEmail(
       heureDebut: data.heureDebut ?? null,
       heureFin: data.heureFin ?? null,
       nbInvites: data.nbInvites ?? null,
-      budgetIndicatifCents: data.budgetIndicatifCents ?? null,
       contraintesAlimentaires: data.contraintesAlimentaires ?? [],
       notes: data.notes ?? null,
       confidence: data.confidence ?? 'low',

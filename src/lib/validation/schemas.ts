@@ -17,7 +17,6 @@ export const ReservationPubliqueSchema = z.object({
   typeEvenement: TypeEvenementSchema.optional(),
   dateEvenement: z.string().date().optional(),
   nbInvites: z.number().int().min(1).max(5000).optional(),
-  budgetEuros: z.number().min(0).max(1_000_000).optional(),
   message: z.string().min(1).max(2000).trim(),
 })
 
@@ -31,7 +30,6 @@ export const CreateDemandeSchema = z.object({
   heureDebut: z.string().regex(/^\d{2}:\d{2}$/).optional(),
   heureFin: z.string().regex(/^\d{2}:\d{2}$/).optional(),
   nbInvites: z.number().int().min(1).max(5000).optional(),
-  budgetEuros: z.number().min(0).max(1_000_000).optional(),
   espaceId: z.string().uuid().optional(),
   notes: z.string().max(5000).trim().optional(),
 })
@@ -46,7 +44,6 @@ export const PatchDemandeSchema = z.object({
   heureDebut: z.string().regex(/^\d{2}:\d{2}$/).nullable().optional(),
   heureFin: z.string().regex(/^\d{2}:\d{2}$/).nullable().optional(),
   nbInvites: z.number().int().min(1).max(5000).nullable().optional(),
-  budgetIndicatifCents: z.number().int().min(0).nullable().optional(),
   conflitOverride: z.boolean().optional(),
 }).strict()
 
@@ -68,7 +65,6 @@ export const EmailExtractionSchema = z.object({
   heureDebut: z.string().nullable().optional(),
   heureFin: z.string().nullable().optional(),
   nbInvites: z.number().int().min(1).nullable().optional(),
-  budgetIndicatifCents: z.number().int().min(0).nullable().optional(),
   contraintesAlimentaires: z.array(z.string()).optional(),
   notes: z.string().nullable().optional(),
   confidence: z.enum(['high', 'medium', 'low']).optional(),

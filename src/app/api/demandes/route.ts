@@ -47,7 +47,6 @@ export async function POST(req: NextRequest) {
       heureDebut: body.heureDebut ?? null,
       heureFin: body.heureFin ?? null,
       nbInvites: body.nbInvites ?? null,
-      budgetIndicatifCents: body.budgetEuros ? Math.round(body.budgetEuros * 100) : null,
       espaceId: body.espaceId ?? null,
       notes: body.notes ?? null,
       urgenceScore: 0,

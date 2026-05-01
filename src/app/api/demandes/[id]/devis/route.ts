@@ -65,10 +65,6 @@ export async function GET(
       ${row('Prix par personne', fmtMoney(demande.menu.prixCents))}
       ${demande.nbInvites ? row('Total estimé', fmtMoney(demande.menu.prixCents * demande.nbInvites)) : ''}
     </table>
-  </section>` : demande.budgetIndicatifCents ? `
-  <section>
-    <h3>Budget indicatif</h3>
-    <table>${row('Budget', fmtMoney(demande.budgetIndicatifCents))}</table>
   </section>` : ''
 
   const html = `<!DOCTYPE html>

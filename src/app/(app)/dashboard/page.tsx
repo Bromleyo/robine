@@ -21,10 +21,6 @@ export default async function DashboardPage() {
     new Date(d.createdAt) >= today && d.statut === 'NOUVELLE'
   ).length
 
-  const caPotentielCents = demandes
-    .filter(d => d.statut === 'CONFIRMEE' || d.statut === 'EN_COURS')
-    .reduce((sum, d) => sum + (d.budgetIndicatifCents ?? 0), 0)
-
   const stats = [
     {
       label: 'Nouvelles', value: demandes.filter(d => d.statut === 'NOUVELLE').length,
@@ -36,7 +32,7 @@ export default async function DashboardPage() {
     },
     {
       label: 'Confirmées', value: demandes.filter(d => d.statut === 'CONFIRMEE').length,
-      color: '#10B981', sub: caPotentielCents > 0 ? `${Math.round(caPotentielCents / 100).toLocaleString('fr-FR')} € potentiel` : null,
+      color: '#10B981', sub: null,
     },
   ]
 

@@ -60,7 +60,7 @@ export async function PATCH(
   if (newStatut !== undefined) {
     const current = await prisma.demande.findFirst({
       where: { id, restaurantId },
-      select: { statut: true, contactId: true, budgetIndicatifCents: true, reference: true },
+      select: { statut: true, contactId: true, reference: true },
     })
     if (!current) return NextResponse.json({ error: 'Not found' }, { status: 404 })
 
@@ -73,18 +73,12 @@ export async function PATCH(
       if (isConfirmed && !wasConfirmed) {
         await tx.contact.update({
           where: { id: current.contactId },
-          data: {
-            nbDemandesConfirmees: { increment: 1 },
-            caTotalEstimeCents: { increment: current.budgetIndicatifCents ?? 0 },
-          },
+          data: { nbDemandesConfirmees: { increment: 1 } },
         })
       } else if (wasConfirmed && !isConfirmed) {
         await tx.contact.update({
           where: { id: current.contactId },
-          data: {
-            nbDemandesConfirmees: { decrement: 1 },
-            caTotalEstimeCents: { decrement: current.budgetIndicatifCents ?? 0 },
-          },
+          data: { nbDemandesConfirmees: { decrement: 1 } },
         })
       }
     })

@@ -25,7 +25,7 @@ export async function DELETE(_req: NextRequest) {
     }),
     prisma.contact.updateMany({
       where: { restaurantId },
-      data: { nbDemandesTotal: 0, nbDemandesConfirmees: 0, caTotalEstimeCents: 0 },
+      data: { nbDemandesTotal: 0, nbDemandesConfirmees: 0 },
     }),
   ])
 

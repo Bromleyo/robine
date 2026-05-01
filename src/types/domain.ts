@@ -50,7 +50,6 @@ export interface Demande {
   heureDebut?: string
   heureFin?: string
   nbInvites?: number
-  budgetIndicatifCents?: number
   contraintesAlimentaires: string[]
   urgenceScore: number
   conflitDetecte: boolean

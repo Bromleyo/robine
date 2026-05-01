@@ -94,7 +94,6 @@ type DemandeWithRelations = {
   heureDebut: string | null
   heureFin: string | null
   nbInvites: number | null
-  budgetIndicatifCents: number | null
   contraintesAlimentaires: string[]
   notes: string | null
 }
@@ -109,7 +108,6 @@ function buildUserPrompt(demande: DemandeWithRelations): string {
     demande.nbInvites ? `Nombre d'invités : ${demande.nbInvites} personnes` : null,
     demande.espace ? `Espace souhaité : ${demande.espace.nom} (capacité max ${demande.espace.capaciteMax} pers.)` : null,
     demande.menu ? `Menu envisagé : ${demande.menu.nom} à ${Math.round(demande.menu.prixCents / 100)}€/pers.` : null,
-    demande.budgetIndicatifCents ? `Budget indicatif : ~${Math.round(demande.budgetIndicatifCents / 100)}€/pers.` : null,
     demande.contraintesAlimentaires.length > 0 ? `Contraintes alimentaires : ${demande.contraintesAlimentaires.join(', ')}` : null,
     demande.notes ? `Notes : ${demande.notes}` : null,
   ].filter(Boolean)

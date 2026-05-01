@@ -196,7 +196,6 @@ model Contact {
   notes                String?
   nbDemandesTotal      Int      @default(0)
   nbDemandesConfirmees Int      @default(0)
-  caTotalEstimeCents   Int      @default(0)
   anonymizedAt         DateTime?
   createdAt            DateTime @default(now())
   updatedAt            DateTime @updatedAt
@@ -243,7 +242,6 @@ model Demande {
   heureDebut          String?
   heureFin            String?
   nbInvites           Int?
-  budgetIndicatifCents Int?
   contraintesAlimentaires String[]    @default([])
   notes               String?
   classificationMethod String?

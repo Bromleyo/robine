@@ -12,7 +12,6 @@ interface Contact {
   societe?: string | null
   nbDemandesTotal: number
   nbDemandesConfirmees: number
-  caTotalEstimeCents: number
 }
 
 interface Props {
@@ -21,13 +20,6 @@ interface Props {
 
 function initials(nom: string) {
   return nom.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2)
-}
-
-function formatCA(cents: number) {
-  if (cents === 0) return '—'
-  return new Intl.NumberFormat('fr-FR', {
-    style: 'currency', currency: 'EUR', maximumFractionDigits: 0,
-  }).format(cents / 100)
 }
 
 export default function ContactsClient({ contacts }: Props) {
@@ -80,7 +72,7 @@ export default function ContactsClient({ contacts }: Props) {
         <table style={{ width: '100%', borderCollapse: 'collapse' }}>
           <thead>
             <tr>
-              {['Contact', 'Email', 'Téléphone', 'Société', 'Demandes', 'Confirmées', 'CA estimé'].map(h => (
+              {['Contact', 'Email', 'Téléphone', 'Société', 'Demandes', 'Confirmées'].map(h => (
                 <th key={h} style={{
                   padding: '10px 16px', textAlign: 'left',
                   fontSize: 11, fontWeight: 600, textTransform: 'uppercase',
@@ -94,7 +86,7 @@ export default function ContactsClient({ contacts }: Props) {
           <tbody>
             {filtered.length === 0 && (
               <tr>
-                <td colSpan={7} style={{
+                <td colSpan={6} style={{
                   padding: '48px 16px', textAlign: 'center',
                   color: 'var(--ink-400)', fontSize: 13,
                 }}>
@@ -143,9 +135,6 @@ export default function ContactsClient({ contacts }: Props) {
                     fontWeight: c.nbDemandesConfirmees > 0 ? 600 : 400,
                     color: c.nbDemandesConfirmees > 0 ? '#059669' : 'var(--ink-300)',
                   }}>{c.nbDemandesConfirmees}</span>
-                </td>
-                <td style={{ padding: '11px 16px' }}>
-                  <span style={{ fontSize: 12.5, color: 'var(--ink-700)' }}>{formatCA(c.caTotalEstimeCents)}</span>
                 </td>
               </tr>
             ))}

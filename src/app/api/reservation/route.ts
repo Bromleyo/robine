@@ -56,7 +56,6 @@ export async function POST(req: NextRequest) {
       typeEvenement: body.typeEvenement ?? null,
       dateEvenement: body.dateEvenement ? new Date(body.dateEvenement) : null,
       nbInvites: body.nbInvites ?? null,
-      budgetIndicatifCents: body.budgetEuros ? Math.round(body.budgetEuros * 100) : null,
       notes: body.message,
       urgenceScore: 0,
       conflitDetecte: false,

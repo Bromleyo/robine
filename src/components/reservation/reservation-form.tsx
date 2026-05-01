@@ -26,7 +26,6 @@ export default function ReservationForm({ restaurantId, restaurantNom }: Props) 
   const [typeEvenement, setTypeEvenement] = useState('')
   const [dateEvenement, setDateEvenement] = useState('')
   const [nbInvites, setNbInvites] = useState('')
-  const [budget, setBudget] = useState('')
   const [message, setMessage] = useState('')
   const [submitting, setSubmitting] = useState(false)
   const [submitted, setSubmitted] = useState(false)
@@ -49,7 +48,6 @@ export default function ReservationForm({ restaurantId, restaurantNom }: Props) 
           typeEvenement: typeEvenement || undefined,
           dateEvenement: dateEvenement || undefined,
           nbInvites: nbInvites ? Number(nbInvites) : undefined,
-          budgetEuros: budget ? Number(budget) : undefined,
           message: message.trim(),
           _hp: '',
         }),
@@ -163,15 +161,9 @@ export default function ReservationForm({ restaurantId, restaurantNom }: Props) 
             </div>
           </div>
 
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
-            <div>
-              <label style={labelStyle}>Nombre d&apos;invités</label>
-              <input type="number" min={1} value={nbInvites} onChange={e => setNbInvites(e.target.value)} style={inputStyle} placeholder="ex. 50" />
-            </div>
-            <div>
-              <label style={labelStyle}>Budget indicatif (€/pers.)</label>
-              <input type="number" min={1} value={budget} onChange={e => setBudget(e.target.value)} style={inputStyle} placeholder="ex. 80" />
-            </div>
+          <div>
+            <label style={labelStyle}>Nombre d&apos;invités</label>
+            <input type="number" min={1} value={nbInvites} onChange={e => setNbInvites(e.target.value)} style={inputStyle} placeholder="ex. 50" />
           </div>
 
           <div>

@@ -19,7 +19,7 @@ type DemandeJson = {
   id: string; reference: string; statut: string
   typeEvenement?: string | null; dateEvenement?: string | null
   heureDebut?: string | null; heureFin?: string | null
-  nbInvites?: number | null; budgetIndicatifCents?: number | null
+  nbInvites?: number | null
   contraintesAlimentaires: string[]
   contact: ContactJson
   espace?: { nom: string } | null
@@ -72,10 +72,6 @@ function matchScore(menu: MenuJson, demande: DemandeJson): number | null {
     if (seuilMin > 0 && demande.nbInvites < seuilMin) return null
   }
   let score = 100
-  if (demande.budgetIndicatifCents) {
-    const over = menu.prixCents - demande.budgetIndicatifCents
-    if (over > 0) score -= Math.min(35, Math.floor(over / 400))
-  }
   if (demande.nbInvites) {
     if (menu.maxConvives && demande.nbInvites > menu.maxConvives) score -= 30
   }
@@ -209,11 +205,6 @@ export default function DemandeFocusModal({ demandeId, onClose }: Props) {
                       <Icon name="pin" size={11} />{data.demande.espace.nom}
                     </span>
                   )}
-                  {data.demande.budgetIndicatifCents && (
-                    <span style={{ fontSize: 12, color: 'var(--ink-600)', display: 'inline-flex', alignItems: 'center', gap: 4 }}>
-                      <Icon name="euro" size={11} />~{Math.round(data.demande.budgetIndicatifCents / 100)} €/pers.
-                    </span>
-                  )}
                   {data.demande.contraintesAlimentaires.length > 0 && (
                     <span style={{ fontSize: 12, color: 'var(--ink-600)', display: 'inline-flex', alignItems: 'center', gap: 4 }}>
                       <Icon name="check" size={11} />{data.demande.contraintesAlimentaires.join(', ')}
@@ -277,7 +268,6 @@ export default function DemandeFocusModal({ demandeId, onClose }: Props) {
                     { label: 'Date', value: data.demande.dateEvenement ? formatDate(data.demande.dateEvenement) : null },
                     { label: 'Horaire', value: (data.demande.heureDebut || data.demande.heureFin) ? [data.demande.heureDebut, data.demande.heureFin].filter(Boolean).join(' – ') : null },
                     { label: 'Invités', value: data.demande.nbInvites ? `${data.demande.nbInvites} personnes` : null },
-                    { label: 'Budget', value: data.demande.budgetIndicatifCents ? `~${Math.round(data.demande.budgetIndicatifCents / 100)} €/pers.` : null },
                     { label: 'Espace', value: data.demande.espace?.nom ?? null },
                     { label: 'Régimes', value: data.demande.contraintesAlimentaires.length > 0 ? data.demande.contraintesAlimentaires.join(', ') : null },
                   ] as { label: string; value: string | null }[]).map((row) => (
@@ -326,11 +316,10 @@ export default function DemandeFocusModal({ demandeId, onClose }: Props) {
                 <span style={{ fontSize: 11, color: 'var(--ink-500)', background: 'var(--surface-sunken)', padding: '1px 7px', borderRadius: 10, border: '1px solid var(--border)' }}>
                   {menusScored.length}
                 </span>
-                {(data.demande.nbInvites || data.demande.budgetIndicatifCents || data.demande.contraintesAlimentaires.length > 0) && (
+                {(data.demande.nbInvites || data.demande.contraintesAlimentaires.length > 0) && (
                   <span style={{ fontSize: 10.5, color: 'var(--ink-400)', marginLeft: 'auto' }}>
                     {[
                       data.demande.nbInvites && `${data.demande.nbInvites} pers.`,
-                      data.demande.budgetIndicatifCents && `~${Math.round(data.demande.budgetIndicatifCents / 100)} €`,
                       ...data.demande.contraintesAlimentaires,
                     ].filter(Boolean).join(' · ')}
                   </span>

@@ -35,12 +35,6 @@ function formatDateTime(d: Date | null | undefined) {
   }).format(d)
 }
 
-function formatBudget(cents: number) {
-  return new Intl.NumberFormat('fr-FR', {
-    style: 'currency', currency: 'EUR', maximumFractionDigits: 0,
-  }).format(cents / 100)
-}
-
 function initials(nom: string) {
   return nom.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2)
 }
@@ -274,9 +268,6 @@ export default async function DemandePage({ params }: { params: Promise<{ id: st
               {demande.nbInvites && (
                 <MetaRow icon="users">{demande.nbInvites} invités</MetaRow>
               )}
-              {demande.budgetIndicatifCents && (
-                <MetaRow icon="euro">{formatBudget(demande.budgetIndicatifCents)}</MetaRow>
-              )}
               {demande.espace && (
                 <MetaRow icon="pin">{demande.espace.nom}</MetaRow>
               )}
@@ -338,7 +329,6 @@ export default async function DemandePage({ params }: { params: Promise<{ id: st
                 { label: 'Date', value: demande.dateEvenement ? formatDate(demande.dateEvenement) : null },
                 { label: 'Horaire', value: demande.heureDebut ? `${demande.heureDebut}${demande.heureFin ? ` – ${demande.heureFin}` : ''}` : null },
                 { label: 'Invités', value: demande.nbInvites ? String(demande.nbInvites) : null },
-                { label: 'Budget', value: demande.budgetIndicatifCents ? formatBudget(demande.budgetIndicatifCents) : null },
                 { label: 'Espace', value: demande.espace?.nom ?? null },
                 { label: 'Contraintes', value: demande.contraintesAlimentaires.length > 0 ? demande.contraintesAlimentaires.join(', ') : null },
               ].map(({ label, value }) => (

@@ -82,7 +82,7 @@ export async function processIncomingEmail(email: NormalizedEmail, mailbox: Mail
 
     // PR2 — R3+R4 : un IN rattaché à une demande existante en ATTENTE_CLIENT
     // ou CONFIRMEE ré-ouvre la conversation. Note : R4 n'inverse PAS les
-    // compteurs contact (nbDemandesConfirmees, caTotalEstimeCents) car le
+    // compteurs contact (nbDemandesConfirmees) car le
     // bascule peut être temporaire (le client peut juste demander une précision).
     // Les compteurs ne bougent que via le PATCH manuel (status-selector).
     const current = await prisma.demande.findUnique({
@@ -132,7 +132,7 @@ export async function processIncomingEmail(email: NormalizedEmail, mailbox: Mail
       typeEvenement: filterResult.extractedBasic?.typeEvenement ?? null,
       dateEvenement: filterResult.extractedBasic?.dateEvenement ?? null,
       nbInvites: filterResult.extractedBasic?.nbInvites ?? null,
-      heureDebut: null, heureFin: null, budgetIndicatifCents: null,
+      heureDebut: null, heureFin: null,
       contraintesAlimentaires: [], notes: null,
       nomContact: null, societeContact: null, telephoneContact: null,
       classificationMethod: 'rules_hard_positive',
@@ -171,7 +171,6 @@ export async function processIncomingEmail(email: NormalizedEmail, mailbox: Mail
     nbInvites: extraction.nbInvites,
     heureDebut: extraction.heureDebut,
     heureFin: extraction.heureFin,
-    budgetIndicatifCents: extraction.budgetIndicatifCents,
     contraintesAlimentaires: extraction.contraintesAlimentaires,
     notes: extraction.notes,
     nomContact: extraction.nomContact,
@@ -187,7 +186,6 @@ interface DemandeFields {
   nbInvites: number | null
   heureDebut: string | null
   heureFin: string | null
-  budgetIndicatifCents: number | null
   contraintesAlimentaires: string[]
   notes: string | null
   nomContact: string | null
@@ -238,7 +236,6 @@ async function createAndPersistDemande(email: NormalizedEmail, mailbox: MailboxR
       heureDebut: fields.heureDebut,
       heureFin: fields.heureFin,
       nbInvites: fields.nbInvites,
-      budgetIndicatifCents: fields.budgetIndicatifCents,
       contraintesAlimentaires: fields.contraintesAlimentaires,
       notes: fields.notes,
       classificationMethod: fields.classificationMethod,

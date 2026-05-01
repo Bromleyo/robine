@@ -25,7 +25,7 @@ export default function NewDemandeForm({ espaces }: Props) {
   const [form, setForm] = useState({
     contactNom: '', contactEmail: '', contactSociete: '', contactTelephone: '',
     typeEvenement: '', dateEvenement: '', heureDebut: '', heureFin: '',
-    nbInvites: '', budgetEuros: '', espaceId: '', notes: '',
+    nbInvites: '', espaceId: '', notes: '',
   })
 
   function set(k: keyof typeof form) {
@@ -51,7 +51,6 @@ export default function NewDemandeForm({ espaces }: Props) {
         heureDebut: form.heureDebut || undefined,
         heureFin: form.heureFin || undefined,
         nbInvites: form.nbInvites ? Number(form.nbInvites) : undefined,
-        budgetEuros: form.budgetEuros ? Number(form.budgetEuros) : undefined,
         espaceId: form.espaceId || undefined,
         notes: form.notes || undefined,
       }),
@@ -129,10 +128,6 @@ export default function NewDemandeForm({ espaces }: Props) {
           <div>
             <label style={labelStyle}>Nombre d'invités</label>
             <input type="number" min="1" value={form.nbInvites} onChange={set('nbInvites')} placeholder="40" style={inputStyle} />
-          </div>
-          <div>
-            <label style={labelStyle}>Budget indicatif (€ / pers.)</label>
-            <input type="number" min="0" step="1" value={form.budgetEuros} onChange={set('budgetEuros')} placeholder="95" style={inputStyle} />
           </div>
           <div style={{ gridColumn: '1 / -1' }}>
             <label style={labelStyle}>Espace souhaité</label>

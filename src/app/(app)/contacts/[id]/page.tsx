@@ -26,10 +26,6 @@ function formatDate(d: Date | string) {
   return new Intl.DateTimeFormat('fr-FR', { day: 'numeric', month: 'short', year: 'numeric' }).format(new Date(d))
 }
 
-function formatCA(cents: number) {
-  return new Intl.NumberFormat('fr-FR', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 }).format(cents / 100)
-}
-
 function initials(nom: string) {
   return nom.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2)
 }
@@ -117,17 +113,6 @@ export default async function ContactPage({ params }: { params: Promise<{ id: st
               </div>
             )}
 
-            {contact.caTotalEstimeCents > 0 && (
-              <div style={{
-                padding: '10px 12px', background: '#F0FDF4',
-                borderRadius: 'var(--r-sm)', border: '1px solid #BBF7D0',
-              }}>
-                <div style={{ fontSize: 11.5, color: '#166534', fontWeight: 500 }}>CA estimé total</div>
-                <div style={{ fontSize: 18, fontWeight: 650, color: '#166534', marginTop: 2 }}>
-                  {formatCA(contact.caTotalEstimeCents)}
-                </div>
-              </div>
-            )}
           </div>
 
           {/* Edit form */}
