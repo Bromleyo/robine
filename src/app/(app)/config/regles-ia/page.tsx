@@ -3,8 +3,6 @@ import { redirect } from 'next/navigation'
 import { prisma } from '@/lib/db/prisma'
 import Topbar from '@/components/layout/topbar'
 import ReglesIAClient from '@/components/config/regles-ia-client'
-import DelaiAttenteForm from '@/components/config/delai-attente-form'
-import { readDelaiAttenteClientJours } from '@/lib/business/urgence'
 
 export default async function ReglesIAPage() {
   const session = await auth()
@@ -26,7 +24,6 @@ export default async function ReglesIAPage() {
     <>
       <Topbar title="Règles IA" subtitle="Paramètres du moteur de réponse automatique" />
       <div style={{ flex: 1, overflowY: 'auto', padding: '24px 32px', maxWidth: 860 }}>
-        <DelaiAttenteForm initialDelai={readDelaiAttenteClientJours(row?.config ?? null)} />
         <ReglesIAClient config={(row?.config ?? {}) as Record<string, unknown>} espaces={espaces} />
       </div>
     </>

@@ -3,6 +3,8 @@ import { redirect } from 'next/navigation'
 import { prisma } from '@/lib/db/prisma'
 import Topbar from '@/components/layout/topbar'
 import AIConfigurationClient from '@/components/config/ai-configuration-client'
+import DelaiAttenteForm from '@/components/config/delai-attente-form'
+import { readDelaiAttenteClientJours } from '@/lib/business/urgence'
 
 export default async function ConfigurationIAPage() {
   const session = await auth()
@@ -11,7 +13,7 @@ export default async function ConfigurationIAPage() {
 
   const restaurantId = session.user.restaurantId
 
-  const [rawConfig, espaces, menus, mailboxes, personalizationRecord] = await Promise.all([
+  const [rawConfig, espaces, menus, mailboxes, personalizationRecord, regleIA] = await Promise.all([
     prisma.aIConfiguration.findUnique({
       where: { restaurantId },
       select: {
@@ -44,6 +46,10 @@ export default async function ConfigurationIAPage() {
     prisma.aIPersonalization.findUnique({
       where: { restaurantId },
       include: { mailbox: { select: { email: true, displayName: true } } },
+    }),
+    prisma.regleIA.findUnique({
+      where: { restaurantId },
+      select: { config: true },
     }),
   ])
 
@@ -83,6 +89,7 @@ export default async function ConfigurationIAPage() {
         subtitle="Paramètre Robin pour répondre comme toi"
       />
       <div style={{ flex: 1, overflowY: 'auto', padding: '24px 32px', maxWidth: 960 }}>
+        <DelaiAttenteForm initialDelai={readDelaiAttenteClientJours(regleIA?.config ?? null)} />
         <AIConfigurationClient
           config={config}
           espaces={espaces}
